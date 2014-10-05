@@ -1,0 +1,484 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
+# (c) 2014, René Moser <mail@renemoser.net>
+#
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible. If not, see <http://www.gnu.org/licenses/>.
+
+DOCUMENTATION = '''
+---
+module: cs_vm
+short_description: Create, start, restart. stop and destroy virtual machines on Apache CloudStack based clouds.
+description:
+    - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs. 
+    - Supports check mode.
+version_added: "1.8"
+options:
+  name:
+    description:
+      - Name of the virtual machine. Name can only contain ASCII letters. Either c(name) or c(display_name) is required.
+    required: false
+    default: null
+    aliases: []
+  display_name:
+    description:
+      - Custom display name of the virtual machine. Either c(name) or c(display_name) is required.
+    required: false
+    default: null
+    aliases: []
+  group:
+    description:
+      - Group in where the new virtual machine should be in.
+    required: false
+    default: null
+    aliases: []
+  state:
+    description:
+      - state of the instance.
+    required: false
+    default: "present"
+    choices: [ "present", "started", "restarted", "stopped", "absent" ]
+    aliases: []
+  service_offering:
+    description:
+      - Name or id of the service offering of the new virtual machine, otherwise
+        first found service offering is used.
+    required: false
+    default: null
+    aliases: []
+  template:
+    description:
+      - Name or id of the template to be used for creating the new virtual machine. Required when using C(state=created)
+    required: true
+    default: null
+    aliases: []
+  networks:
+    description:
+      - List of network to use for the new virtual machine.
+    required: false
+    default: []
+    aliases: []
+  disk_offering:
+    description:
+      - Name of the disk offering to be used.
+    required: false
+    default: null
+    aliases: []
+  security_groups:
+    description:
+      - List security groups this instance should be applied to.
+    required: false
+    default: []
+    aliases: [ 'security_group' ]
+  project:
+    description:
+      - Name of the project in which the instance shoud be created.
+    required: false
+    default: null
+    aliases: []
+  zone:
+    description:
+      - Name of the zone in which the instance shoud be created, otherwise
+        default zone is used.
+    required: false
+    default: null
+    aliases: []
+  key_name:
+    description:
+      - Name or the SSH key to be deployed on the new instance.
+    required: false
+    default: null
+    aliases: []
+  affinity_groups:
+    description:
+      - Affinity groups names that are going to be applied to the new virtual machine.
+    required: false
+    default: null
+    aliases: [ 'affinitygroup' ]
+  api_key:
+    description:
+      - API key of the CloudStack API.
+    required: false
+    default: null
+    aliases: []
+  secret_key:
+    description:
+      - Secret key of the CloudStack API.
+    required: false
+    default: null
+    aliases: []
+  url:
+    description:
+      - URL of the CloudStack API e.g. https://cloud.example.com/client/api.
+    required: false
+    default: null
+    aliases: []
+author: René Moser
+requirements: requirements: [ "cs" ]
+'''
+
+EXAMPLES = '''
+---
+# Create a virtual machine on CloudStack
+- local_action:
+    module: cs_vm
+    name: web-vm-1
+    template: 'Linux Debian 7 64-bit'
+    key_name: 'john@example.com'
+    api_key: '...'
+    secret_key: '...'
+    url: https://cloud.example.com/client/api
+
+
+# Create a virtual machine on Exoscale
+- local_action:
+    module: cs_vm
+    name: web-vm-1
+    template='Linux Debian 7 64-bit'
+    key_name='john@example.com'
+    api_key='...'
+    secret_key='...'
+    url: https://api.exoscale.ch/compute
+  register: vm
+
+- debug: msg="ip addresses {{ item }}"
+  with_items: vm.ip_addresses
+
+
+# Stop a virtual machine
+- local_action: cs_vm name=web-vm-1 state=stopped
+
+
+# Start a virtual machine
+- local_action: cs_vm name=web-vm-1 state=started
+
+
+# Remove a virtual machine on CloudStack
+- local_action: cs_vm name=web-vm-1 state=absent
+'''
+
+try:
+    from cs import CloudStack, CloudStackException, read_config
+except ImportError:
+    print("failed=True " + \
+        "msg='python library cs required. pip install cs'")
+    sys.exit(1)
+
+
+def get_service_offering_id(module, cs):
+    service_offering = module.params.get('service_offering')
+    service_offerings = cs.listServiceOfferings()
+    if service_offerings:
+        if not service_offering:
+            return service_offerings['serviceoffering'][0]['id']
+
+        for s in service_offerings['serviceoffering']:
+            if s['name'] == service_offering or s['id'] == service_offering:
+                return s['id']
+    module.fail_json(msg="Service offering '%s' not found" % service_offering)
+
+
+def get_template_id(module, cs):
+    template = module.params.get('template')
+    templates = cs.listTemplates(templatefilter="executable")
+    if templates:
+        for t in templates['template']:
+            if t['name'] == template or t['id'] == template:
+                return t['id']
+    module.fail_json(msg="template '%s' not found" % template)
+
+
+def get_disk_offering_id(module, cs):
+    disk_offering = module.params.get('disk_offering')
+
+    if not disk_offering:
+        return ""
+
+    disk_offerings = cs.listDiskOfferings()
+    if disk_offerings:
+        for d in disk_offerings['disk_offering']:
+            if d['name'] == disk_offering or d['id'] == disk_offering:
+                return d['id']
+    module.fail_json(msg="disk offering '%s' not found" % disk_offering)
+
+
+def get_project_id(module, cs):
+    project = module.params.get('project')
+    if not project:
+        return ""
+
+    projects = cs.listProjects()
+    if projects:
+        for p in projects['project']:
+            if p['name'] == project or p['id'] == project:
+                return p['id']
+    module.fail_json(msg="project '%s' not found" % project)
+
+
+def get_zone_id(module, cs):
+    zone = module.params.get('zone')
+    zones = cs.listZones()
+
+    if not zone:
+        return zones['zone'][0]['id']
+
+    if zones:
+        for z in zones['zone']:
+            if z['name'] == zone or z['id'] == zone:
+                return z
+    module.fail_json(msg="zone '%s' not found" % zone)
+
+
+def get_vm(module, cs):
+    vm_name = module.params.get('name')
+    vm_display_name = module.params.get('display_name')
+
+    if not vm_name and not vm_display_name:
+        module.fail_json(msg="name or display_name is required")
+
+    project_id = get_project_id(module, cs)
+    vms = cs.listVirtualMachines(projectid=project_id)
+    if vms:
+        for v in vms['virtualmachine']:
+            if ('name' in v and v['name'] == vm_name) or ('displayname' in v and v['displayname'] == vm_display_name):
+                return v
+    return None
+
+
+def get_network_ids(module, cs):
+    networks = module.params.get('networks')
+
+    if not networks:
+        return None
+
+    project_id = get_project_id()
+    if project:
+        network_res = cs.listNetworks(projectid=project['id'])
+    else:
+        network_res = cs.listNetworks()
+
+    network_ids = []
+    if network_res:
+        for n in networks_res['network']:
+            if n['name'] in networks or n['id'] in networks:
+                network_ids.append(n['id'])
+    return ",".join(network_ids)
+
+
+def create_vm(module, cs):
+    result = {}
+    result['changed'] = False
+
+    vm = get_vm(module, cs)
+
+    if not vm:
+        zone_id = get_zone_id(module, cs)
+        service_offering_id = get_service_offering_id(module, cs)
+        template_id = get_template_id(module, cs)
+        project_id = get_project_id(module, cs)
+        network_ids = get_network_ids(module, cs)
+        disk_offering_id = get_disk_offering_id(module, cs)
+
+        name = module.params.get('name')
+
+        display_name = module.params.get('display_name')
+        if not display_name:
+            display_name = name
+
+        group = module.params.get('group')
+        key_name = module.params.get('key_name')
+
+        security_group_name_list = module.params.get('security_groups')
+        security_group_names = ""
+        if security_group_name_list:
+          security_group_names = ",".join(security_group_name_list)
+
+        affinity_group_name_list = module.params.get('affinity_groups')
+        affinity_group_names = ""
+        if affinity_group_name_list:
+          affinity_group_names = ",".join(affinity_group_name_list)
+
+        if not module.check_mode:
+            vm = cs.deployVirtualMachine(
+                name=name,
+                displayname=display_name,
+                group=group,
+                templateid=template_id,
+                serviceofferingid=service_offering_id,
+                zoneid=zone_id,
+                projectid=project_id,
+                networkids=network_ids,
+                diskofferingid=disk_offering_id,
+                securitygroupnames=security_group_names,
+                affinitygroupnames=affinity_group_names,
+                keypair=key_name)
+
+            if 'errortext' in vm:
+                module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+        result['changed'] = True
+    return (result, vm)
+
+
+def remove_vm(module, cs):
+    result = {}
+    result['changed'] = False
+    vm = get_vm(module, cs)
+    if vm:
+        if not module.check_mode:
+            res = cs.destroyVirtualMachine(id=vm['id'])
+            if 'errortext' in res:
+                module.fail_json(msg="Failed: '%s'" % res['errortext'])
+        result['changed'] = True
+    return (result, vm)
+
+
+def stop_vm(module, cs):
+    result = {}
+    result['changed'] = False
+    vm = get_vm(module, cs)
+    if not vm:
+        module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
+
+    if vm['state'] != "Stopped" and vm['state'] != "Stopping":
+        if not module.check_mode:
+            cs.stopVirtualMachine(id=vm['id'])
+        result['changed'] = True
+    return (result, vm)
+
+
+def start_vm(module, cs):
+    result = {}
+    result['changed'] = False
+    vm = get_vm(module, cs)
+    if not vm:
+        module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
+    if vm['state'] == "Stopped" or vm['state'] == "Stopping":
+        if not module.check_mode:
+            cs.startVirtualMachine(id=vm['id'])
+        result['changed'] = True
+    return (result, vm)
+
+
+def restart_vm(module, cs):
+    result = {}
+    result['changed'] = False
+    vm = get_vm(module, cs)
+    if not vm:
+        module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
+    if vm['state'] == "Running" or vm['state'] == "Starting":
+        if not module.check_mode:
+            cs.rebootVirtualMachine(id=vm['id'])
+        result['changed'] = True
+    elif vm['state'] == "Stopping" or vm['state'] == "Stopped":
+        module.fail_json(msg="Virtual machine named '%s' not running, not restarted" % module.params.get('name'))
+    return (result, vm)
+
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            name = dict(default=None),
+            display_name = dict(default=None),
+            group = dict(default=None),
+            state = dict(choices=['created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed'], default='present'),
+            service_offering = dict(default=None),
+            template = dict(required=True, default=None),
+            networks = dict(type='list', default=None),
+            disk_offering = dict(default=None),
+            security_groups = dict(type='list', aliases= [ 'security_group' ], default=None),
+            affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
+            project = dict(default=None),
+            zone = dict(default=None),
+            key_name = dict(default=None),
+            api_key = dict(default=None),
+            secret_key = dict(default=None),
+            url = dict(default=None),
+        ),
+        supports_check_mode=True
+    )
+
+    result = {}
+    state = module.params.get('state')
+    result['changed'] = False
+
+    try:
+        api_key = module.params.get('api_key')
+        secret_key = module.params.get('secret_key')
+        url = module.params.get('url')
+
+        if api_key and secret_key and url:
+            cs = CloudStack(
+                endpoint=url,
+                key=api_key,
+                secret=secret_key
+                )
+        else:
+            cs = CloudStack(**read_config())
+
+        if state in ['absent', 'destroyed']:
+            (result, vm) = remove_vm(module, cs)
+
+        elif state in ['present', 'created']:
+            (result, vm) = create_vm(module, cs)
+
+        elif state in ['stopped', 'halted']:
+            (result, vm) = stop_vm(module, cs)
+
+        elif state in ['started', 'running', 'booted']:
+            (result, vm) = start_vm(module, cs)
+
+        elif state in ['restarted', 'rebooted']:
+            (result, vm) = restart_vm(module, cs)
+
+        if vm:
+            result['id'] = vm['id']
+
+            if 'name' in vm:
+                result['name'] = vm['name']
+
+            if 'displayname' in vm:
+                result['display_name'] = vm['displayname']
+
+            if 'serviceofferingname' in vm:
+                result['service_offering'] = vm['serviceofferingname']
+
+            if 'zonename' in vm:
+                result['zone'] = vm['zonename']
+
+            if 'templatename' in vm:
+                result['template'] = vm['templatename']
+
+            if 'created' in vm:
+                result['created'] = vm['created']
+
+            if 'tags' in vm:
+                result['tags'] = vm['tags']
+            
+            if 'nic' in vm:
+                ip_addresses = []
+                for nic in vm['nic']:
+                    ip_addresses.append(nic['ipaddress'])
+                result['ip_addresses'] = ip_addresses
+    except CloudStackException, e:
+        module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    module.exit_json(**result)
+
+# import module snippets
+from ansible.module_utils.basic import *
+main()
