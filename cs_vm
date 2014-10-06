@@ -26,7 +26,7 @@ description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
     - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs. 
     - Supports check mode.
-version_added: "1.8"
+version_added: '1.8'
 options:
   name:
     description:
@@ -50,8 +50,8 @@ options:
     description:
       - state of the instance.
     required: false
-    default: "present"
-    choices: [ "present", "started", "restarted", "stopped", "absent" ]
+    default: 'present'
+    choices: [ 'present', 'started', 'restarted', 'stopped', 'absent' ]
     aliases: []
   service_offering:
     description:
@@ -128,7 +128,7 @@ options:
     default: null
     aliases: []
 author: René Moser
-requirements: requirements: [ "cs" ]
+requirements: requirements: [ 'cs' ]
 '''
 
 EXAMPLES = '''
@@ -155,7 +155,7 @@ EXAMPLES = '''
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg="ip addresses {{ item }}"
+- debug: msg='ip addresses {{ item }}'
   with_items: vm.ip_addresses
 
 
@@ -194,7 +194,7 @@ def get_service_offering_id(module, cs):
 
 def get_template_id(module, cs):
     template = module.params.get('template')
-    templates = cs.listTemplates(templatefilter="executable")
+    templates = cs.listTemplates(templatefilter='executable')
     if templates:
         for t in templates['template']:
             if t['name'] == template or t['id'] == template:
@@ -206,7 +206,7 @@ def get_disk_offering_id(module, cs):
     disk_offering = module.params.get('disk_offering')
 
     if not disk_offering:
-        return ""
+        return ''
 
     disk_offerings = cs.listDiskOfferings()
     if disk_offerings:
@@ -219,7 +219,7 @@ def get_disk_offering_id(module, cs):
 def get_project_id(module, cs):
     project = module.params.get('project')
     if not project:
-        return ""
+        return ''
 
     projects = cs.listProjects()
     if projects:
@@ -248,7 +248,7 @@ def get_vm(module, cs):
     vm_display_name = module.params.get('display_name')
 
     if not vm_name and not vm_display_name:
-        module.fail_json(msg="name or display_name is required")
+        module.fail_json(msg='name or display_name is required')
 
     project_id = get_project_id(module, cs)
     vms = cs.listVirtualMachines(projectid=project_id)
@@ -276,7 +276,7 @@ def get_network_ids(module, cs):
         for n in networks_res['network']:
             if n['name'] in networks or n['id'] in networks:
                 network_ids.append(n['id'])
-    return ",".join(network_ids)
+    return ','.join(network_ids)
 
 
 def create_vm(module, cs):
@@ -303,14 +303,14 @@ def create_vm(module, cs):
         key_name = module.params.get('key_name')
 
         security_group_name_list = module.params.get('security_groups')
-        security_group_names = ""
+        security_group_names = ''
         if security_group_name_list:
-          security_group_names = ",".join(security_group_name_list)
+            security_group_names = ','.join(security_group_name_list)
 
         affinity_group_name_list = module.params.get('affinity_groups')
-        affinity_group_names = ""
+        affinity_group_names = ''
         if affinity_group_name_list:
-          affinity_group_names = ",".join(affinity_group_name_list)
+            affinity_group_names = ','.join(affinity_group_name_list)
 
         if not module.check_mode:
             vm = cs.deployVirtualMachine(
@@ -354,7 +354,7 @@ def stop_vm(module, cs):
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
 
-    if vm['state'] != "Stopped" and vm['state'] != "Stopping":
+    if vm['state'] != 'Stopped' and vm['state'] != 'Stopping':
         if not module.check_mode:
             cs.stopVirtualMachine(id=vm['id'])
         result['changed'] = True
@@ -367,7 +367,7 @@ def start_vm(module, cs):
     vm = get_vm(module, cs)
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
-    if vm['state'] == "Stopped" or vm['state'] == "Stopping":
+    if vm['state'] == 'Stopped' or vm['state'] == 'Stopping':
         if not module.check_mode:
             cs.startVirtualMachine(id=vm['id'])
         result['changed'] = True
@@ -380,11 +380,11 @@ def restart_vm(module, cs):
     vm = get_vm(module, cs)
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
-    if vm['state'] == "Running" or vm['state'] == "Starting":
+    if vm['state'] == 'Running' or vm['state'] == 'Starting':
         if not module.check_mode:
             cs.rebootVirtualMachine(id=vm['id'])
         result['changed'] = True
-    elif vm['state'] == "Stopping" or vm['state'] == "Stopped":
+    elif vm['state'] == 'Stopping' or vm['state'] == 'Stopped':
         module.fail_json(msg="Virtual machine named '%s' not running, not restarted" % module.params.get('name'))
     return (result, vm)
 
