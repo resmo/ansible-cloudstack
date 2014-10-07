@@ -109,6 +109,12 @@ options:
     required: false
     default: null
     aliases: [ 'affinitygroup' ]
+  poll_async:
+    description:
+      - Poll async jobs until job has finised.
+    required: false
+    default: true
+    aliases: []
   api_key:
     description:
       - API key of the CloudStack API.
@@ -330,7 +336,8 @@ def create_vm(module, cs):
             if 'errortext' in vm:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
-            if 'jobid' in vm:
+            poll_async = module.params.get('poll_async')
+            if 'jobid' in vm and poll_async:
                 while True:
                     res = cs.queryAsyncJobResult(**vm)
                     if res['jobprocstatus'] == 0:
@@ -412,6 +419,7 @@ def main():
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
             zone = dict(default=None),
+            poll_async = dist(default=True),
             key_name = dict(default=None),
             api_key = dict(default=None),
             secret_key = dict(default=None),
