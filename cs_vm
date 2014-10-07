@@ -330,6 +330,14 @@ def create_vm(module, cs):
             if 'errortext' in vm:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
+            if 'jobid' in vm:
+                while True:
+                    res = cs.queryAsyncJobResult(**vm)
+                    if res['jobprocstatus'] == 0:
+                        vm = res
+                        break
+                    time.sleep(3)
+
         result['changed'] = True
     return (result, vm)
 
