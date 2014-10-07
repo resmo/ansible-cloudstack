@@ -272,8 +272,8 @@ def get_network_ids(module, cs):
         return None
 
     project_id = get_project_id()
-    if project:
-        network_res = cs.listNetworks(projectid=project['id'])
+    if project_id:
+        network_res = cs.listNetworks(projectid=project_id)
     else:
         network_res = cs.listNetworks()
 
