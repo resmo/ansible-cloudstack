@@ -24,7 +24,7 @@ module: cs_vm
 short_description: Create, start, restart. stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs. 
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs.
     - Supports check mode.
 version_added: '1.8'
 options:
@@ -48,15 +48,14 @@ options:
     aliases: []
   state:
     description:
-      - state of the instance.
+      - state of the virtual machine.
     required: false
     default: 'present'
-    choices: [ 'present', 'started', 'restarted', 'stopped', 'absent' ]
+    choices: [ 'created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed', 'expunged' ]
     aliases: []
   service_offering:
     description:
-      - Name or id of the service offering of the new virtual machine, otherwise
-        first found service offering is used.
+      - Name or id of the service offering of the new virtual machine. If not set, first found service offering is used.
     required: false
     default: null
     aliases: []
@@ -68,7 +67,7 @@ options:
     aliases: []
   networks:
     description:
-      - List of network to use for the new virtual machine.
+      - List of networks to use for the new virtual machine.
     required: false
     default: []
     aliases: []
@@ -80,32 +79,31 @@ options:
     aliases: []
   security_groups:
     description:
-      - List security groups this instance should be applied to.
+      - List of security groups the virtual machine to be applied to.
     required: false
     default: []
     aliases: [ 'security_group' ]
   project:
     description:
-      - Name of the project in which the instance shoud be created.
+      - Name of the project the virtual machine to be created in.
     required: false
     default: null
     aliases: []
   zone:
     description:
-      - Name of the zone in which the instance shoud be created, otherwise
-        default zone is used.
+      - Name of the zone in which the virtual machine shoud be created. If not set, default zone is used.
     required: false
     default: null
     aliases: []
   key_name:
     description:
-      - Name or the SSH key to be deployed on the new instance.
+      - Name of the SSH key to be deployed on the new virtual machine.
     required: false
     default: null
     aliases: []
   affinity_groups:
     description:
-      - Affinity groups names that are going to be applied to the new virtual machine.
+      - Affinity groups names to be applied to the new virtual machine.
     required: false
     default: null
     aliases: [ 'affinitygroup' ]
