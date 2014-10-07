@@ -362,6 +362,19 @@ def remove_vm(module, cs):
     return (result, vm)
 
 
+def expunge_vm(module, cs):
+    result = {}
+    result['changed'] = False
+    vm = get_vm(module, cs)
+    if vm:
+        if not module.check_mode:
+            res = cs.expungeVirtualMachine(id=vm['id'])
+            if 'errortext' in res:
+                module.fail_json(msg="Failed: '%s'" % res['errortext'])
+        result['changed'] = True
+    return (result, vm)
+
+
 def stop_vm(module, cs):
     result = {}
     result['changed'] = False
@@ -410,7 +423,7 @@ def main():
             name = dict(default=None),
             display_name = dict(default=None),
             group = dict(default=None),
-            state = dict(choices=['created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed'], default='present'),
+            state = dict(choices=['created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed', 'expunged'], default='present'),
             service_offering = dict(default=None),
             template = dict(required=True, default=None),
             networks = dict(type='list', default=None),
@@ -448,6 +461,9 @@ def main():
 
         if state in ['absent', 'destroyed']:
             (result, vm) = remove_vm(module, cs)
+
+        elif state in ['expunged']:
+            (result, vm) = expunge_vm(module, cs)
 
         elif state in ['present', 'created']:
             (result, vm) = create_vm(module, cs)
