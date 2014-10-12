@@ -505,8 +505,13 @@ def main():
                 result['created'] = vm['created']
 
             if 'tags' in vm:
-                result['tags'] = vm['tags']
-            
+                tags = {}
+                for tag in vm['tags']:
+                  key = tag['key']
+                  value = tag['value']
+                  tags[key] = value
+                result['tags'] = tags
+
             if 'nic' in vm:
                 ip_addresses = []
                 for nic in vm['nic']:
