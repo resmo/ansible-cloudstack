@@ -95,7 +95,7 @@ options:
     required: false
     default: null
     aliases: []
-  key_name:
+  ssh_key:
     description:
       - Name of the SSH key to be deployed on the new virtual machine.
     required: false
@@ -142,7 +142,7 @@ EXAMPLES = '''
     module: cs_vm
     name: web-vm-1
     template: 'Linux Debian 7 64-bit'
-    key_name: 'john@example.com'
+    ssh_key: 'john@example.com'
     api_key: '...'
     secret_key: '...'
     url: https://cloud.example.com/client/api
@@ -304,7 +304,7 @@ def create_vm(module, cs):
             display_name = name
 
         group = module.params.get('group')
-        key_name = module.params.get('key_name')
+        ssh_key = module.params.get('ssh_key')
 
         security_group_name_list = module.params.get('security_groups')
         security_group_names = ''
@@ -329,7 +329,7 @@ def create_vm(module, cs):
                 diskofferingid=disk_offering_id,
                 securitygroupnames=security_group_names,
                 affinitygroupnames=affinity_group_names,
-                keypair=key_name)
+                keypair=ssh_key)
 
             if 'errortext' in vm:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -431,7 +431,7 @@ def main():
             project = dict(default=None),
             zone = dict(default=None),
             poll_async = dist(default=True),
-            key_name = dict(default=None),
+            ssh_key = dict(default=None),
             api_key = dict(default=None),
             secret_key = dict(default=None),
             url = dict(default=None),
