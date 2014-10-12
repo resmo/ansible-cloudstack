@@ -48,7 +48,7 @@ options:
     aliases: []
   state:
     description:
-      - state of the virtual machine.
+      - State of the virtual machine.
     required: false
     default: 'present'
     choices: [ 'created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed', 'expunged' ]
