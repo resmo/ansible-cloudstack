@@ -342,7 +342,7 @@ def create_vm(module, cs):
                         if 'jobresult' in res and 'virtualmachine' in res['jobresult']:
                             vm = res['jobresult']['virtualmachine']
                         break
-                    time.sleep(3)
+                    time.sleep(2)
 
         result['changed'] = True
     return (result, vm)
@@ -477,7 +477,8 @@ def main():
             (result, vm) = restart_vm(module, cs)
 
         if vm:
-            result['id'] = vm['id']
+            if 'id' in vm:
+              result['id'] = vm['id']
 
             if 'name' in vm:
                 result['name'] = vm['name']
