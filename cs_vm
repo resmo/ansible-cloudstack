@@ -430,7 +430,7 @@ def main():
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
             zone = dict(default=None),
-            poll_async = dist(default=True),
+            poll_async = dict(default=True),
             ssh_key = dict(default=None),
             api_key = dict(default=None),
             secret_key = dict(default=None),
