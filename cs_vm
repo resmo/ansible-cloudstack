@@ -337,9 +337,10 @@ def create_vm(module, cs):
             poll_async = module.params.get('poll_async')
             if 'jobid' in vm and poll_async:
                 while True:
-                    res = cs.queryAsyncJobResult(**vm)
-                    if res['jobprocstatus'] == 0:
-                        vm = res
+                    res = cs.queryAsyncJobResult(jobid=vm['jobid'])
+                    if res['jobstatus'] != 0:
+                        if 'jobresult' in res and 'virtualmachine' in res['jobresult']:
+                            vm = res['jobresult']['virtualmachine']
                         break
                     time.sleep(3)
 
