@@ -486,6 +486,9 @@ def main():
             if 'displayname' in vm:
                 result['display_name'] = vm['displayname']
 
+            if 'group' in vm:
+                result['group'] = vm['group']
+
             if 'password' in vm:
                 result['password'] = vm['password']
 
