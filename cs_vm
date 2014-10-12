@@ -290,46 +290,38 @@ def create_vm(module, cs):
     vm = get_vm(module, cs)
 
     if not vm:
-        zone_id = get_zone_id(module, cs)
-        service_offering_id = get_service_offering_id(module, cs)
-        template_id = get_template_id(module, cs)
-        project_id = get_project_id(module, cs)
-        network_ids = get_network_ids(module, cs)
-        disk_offering_id = get_disk_offering_id(module, cs)
+        args = {}
+        args['zoneid'] = get_zone_id(module, cs)
+        args['serviceofferingid'] = get_service_offering_id(module, cs)
+        args['templateid'] = get_template_id(module, cs)
+        args['projectid'] = get_project_id(module, cs)
+        args['networkids'] = get_network_ids(module, cs)
+        args['disk_offering_id'] = get_disk_offering_id(module, cs)
 
-        name = module.params.get('name')
+        args['name'] = module.params.get('name')
 
         display_name = module.params.get('display_name')
         if not display_name:
-            display_name = name
+            display_name = args['name']
+        args['displayname'] = display_name
 
-        group = module.params.get('group')
-        ssh_key = module.params.get('ssh_key')
+        args['group'] = module.params.get('group')
+        args['keypair'] = module.params.get('ssh_key')
 
         security_group_name_list = module.params.get('security_groups')
         security_group_names = ''
         if security_group_name_list:
             security_group_names = ','.join(security_group_name_list)
+        args['securitygroupnames'] = security_group_names
 
         affinity_group_name_list = module.params.get('affinity_groups')
         affinity_group_names = ''
         if affinity_group_name_list:
             affinity_group_names = ','.join(affinity_group_name_list)
+        args['affinitygroupnames'] = affinity_group_names
 
         if not module.check_mode:
-            vm = cs.deployVirtualMachine(
-                name=name,
-                displayname=display_name,
-                group=group,
-                templateid=template_id,
-                serviceofferingid=service_offering_id,
-                zoneid=zone_id,
-                projectid=project_id,
-                networkids=network_ids,
-                diskofferingid=disk_offering_id,
-                securitygroupnames=security_group_names,
-                affinitygroupnames=affinity_group_names,
-                keypair=ssh_key)
+            vm = cs.deployVirtualMachine(**args)
 
             if 'errortext' in vm:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
