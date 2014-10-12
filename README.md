@@ -1,7 +1,7 @@
-Ansible Cloudstack Module
-=========================
+Ansible Cloudstack Modules
+==========================
 
-Manages instances on Apache CloudStack, Citrix CloudPlatform and Exoscale.
+Manages resources on Apache CloudStack, Citrix CloudPlatform and Exoscale.
 
 Requirements
 ------------
@@ -12,6 +12,14 @@ Examples
 --------
 
 ```
+# Create a SSH keypair
+- local_action: cs_sshkey name=john@example.com
+  register: key
+
+# Show the private key.
+- debug msg="private key is key.private_key" 
+
+
 # Create a virtual machine on CloudStack
 - local_action:
     module: cs_vm
