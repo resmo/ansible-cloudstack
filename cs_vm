@@ -506,10 +506,11 @@ def main():
                 result['tags'] = tags
 
             if 'nic' in vm:
-                ip_addresses = []
                 for nic in vm['nic']:
-                    ip_addresses.append(nic['ipaddress'])
-                result['ip_addresses'] = ip_addresses
+                    if nic['isdefault']:
+                        result['default_ip'] = nic['ipaddress']
+                result['nic'] = vm['nic']
+
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
