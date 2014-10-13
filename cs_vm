@@ -61,7 +61,7 @@ options:
     aliases: []
   template:
     description:
-      - Name or id of the template to be used for creating the new virtual machine. Required when using C(state=created)
+      - Name or id of the template to be used for creating the new virtual machine. Required when using C(state=created).
     required: false
     default: null
     aliases: []
