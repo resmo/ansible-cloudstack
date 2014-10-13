@@ -214,7 +214,7 @@ def get_disk_offering_id(module, cs):
 
     disk_offerings = cs.listDiskOfferings()
     if disk_offerings:
-        for d in disk_offerings['disk_offering']:
+        for d in disk_offerings['diskoffering']:
             if d['name'] == disk_offering or d['id'] == disk_offering:
                 return d['id']
     module.fail_json(msg="disk offering '%s' not found" % disk_offering)
