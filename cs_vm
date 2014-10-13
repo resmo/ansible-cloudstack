@@ -278,7 +278,7 @@ def get_network_ids(module, cs):
 
     network_ids = []
     if network_res:
-        for n in networks_res['network']:
+        for n in network_res['network']:
             if n['name'] in networks or n['id'] in networks:
                 network_ids.append(n['id'])
     return ','.join(network_ids)
