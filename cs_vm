@@ -270,10 +270,11 @@ def get_network_ids(module, cs):
         return None
 
     project_id = get_project_id(module, cs)
+    zone_id = get_zone_id(module, cs)
     if project_id:
-        network_res = cs.listNetworks(projectid=project_id)
+        network_res = cs.listNetworks(projectid=project_id, zoneid=zone_id)
     else:
-        network_res = cs.listNetworks()
+        network_res = cs.listNetworks(zoneid=zone_id)
 
     network_ids = []
     if network_res:
