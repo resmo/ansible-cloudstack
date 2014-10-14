@@ -21,11 +21,11 @@
 DOCUMENTATION = '''
 ---
 module: cs_vm
-short_description: Create, start, restart. stop and destroy virtual machines on Apache CloudStack based clouds.
+short_description: Create, start, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs.
-    - Supports check mode.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), (also see https://github.com/exoscale/cs on which this module depends on).
+    - This module supports check mode.
 version_added: '1.8'
 options:
   name:
@@ -132,7 +132,7 @@ options:
     default: null
     aliases: []
 author: René Moser
-requirements: requirements: [ 'cs' ]
+requirements: [ 'cs' ]
 '''
 
 EXAMPLES = '''
@@ -153,7 +153,7 @@ EXAMPLES = '''
     module: cs_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
-    key_name='john@example.com'
+    ssh_name='john@example.com'
     api_key='...'
     secret_key='...'
     url: https://api.exoscale.ch/compute
