@@ -30,13 +30,13 @@ version_added: '1.8'
 options:
   name:
     description:
-      - Name of the virtual machine. Name can only contain ASCII letters. Either c(name) or c(display_name) is required.
+      - Name of the virtual machine. Name can only contain ASCII letters. Either C(name) or C(display_name) is required.
     required: false
     default: null
     aliases: []
   display_name:
     description:
-      - Custom display name of the virtual machine. Either c(name) or c(display_name) is required.
+      - Custom display name of the virtual machine. Either C(name) or C(display_name) is required.
     required: false
     default: null
     aliases: []
@@ -132,7 +132,7 @@ options:
     default: null
     aliases: []
 author: René Moser
-requirements: [ 'cs' ]
+requirements: [ 'python library C(cs)' ]
 '''
 
 EXAMPLES = '''
@@ -153,25 +153,24 @@ EXAMPLES = '''
     module: cs_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
-    ssh_name='john@example.com'
+    ssh_key='john@example.com'
     api_key='...'
     secret_key='...'
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg='ip addresses {{ item }}'
-  with_items: vm.ip_addresses
+- debug: msg='default ip {{ vm.default_ip }}'
 
 
-# Stop a virtual machine
+# Stop a virtual machine, credentials used in $HOME/.cloudstack.ini
 - local_action: cs_vm name=web-vm-1 state=stopped
 
 
-# Start a virtual machine
+# Start a virtual machine, credentials used in $HOME/.cloudstack.ini
 - local_action: cs_vm name=web-vm-1 state=started
 
 
-# Remove a virtual machine on CloudStack
+# Remove a virtual machine, credentials used in $HOME/.cloudstack.ini
 - local_action: cs_vm name=web-vm-1 state=absent
 '''
 
