@@ -20,7 +20,7 @@
 
 DOCUMENTATION = '''
 ---
-module: cs_sshkey
+module: cloudstack_sshkey
 short_description: Create, register and remove ssh keys on Apache CloudStack based clouds.
 description:
     - If no public key is provided, a new ssh private/public key will be created, the private key will be returned.
@@ -72,18 +72,18 @@ requirements: [ 'cs' ]
 EXAMPLES = '''
 ---
 # create a new private / public key:
-- cs_sshkey: name='linus@example.com'
+- cloudstack_sshkey: name='linus@example.com'
   register: key
 
 - debug: msg="private key is key.private_key"
 
 
 # remove a public key:
-- cs_sshkey: name='linus@example.com' state=absent
+- cloudstack_sshkey: name='linus@example.com' state=absent
 
 
 # register a your local public key:
-- cs_sshkey: name='linus@example.com' public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
+- cloudstack_sshkey: name='linus@example.com' public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
 '''
 
 try:
@@ -117,7 +117,7 @@ def register_ssh_key(module, cs):
         args = {}
         project_id = get_project_id(module, cs)
         if project_id:
-            args['projectid'] = project_id 
+            args['projectid'] = project_id
 
         result['changed'] = True
         if not module.check_mode:
