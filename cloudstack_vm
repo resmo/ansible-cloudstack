@@ -159,7 +159,7 @@ EXAMPLES = '''
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg='default ip {{ vm.default_ip }}'
+- debug: msg='default ip {{ ansible.cloudstack_default_ip }}'
 
 
 # Stop a virtual machine, credentials used in $HOME/.cloudstack.ini
@@ -472,32 +472,33 @@ def main():
             (result, vm) = restart_vm(module, cs)
 
         if vm:
+            ansible_facts = {}
             if 'id' in vm:
-              result['id'] = vm['id']
+              ansible_facts['id'] = vm['id']
 
             if 'name' in vm:
-                result['name'] = vm['name']
+                ansible_facts['name'] = vm['name']
 
             if 'displayname' in vm:
-                result['display_name'] = vm['displayname']
+                ansible_facts['display_name'] = vm['displayname']
 
             if 'group' in vm:
-                result['group'] = vm['group']
+                ansible_facts['group'] = vm['group']
 
             if 'password' in vm:
                 result['password'] = vm['password']
 
             if 'serviceofferingname' in vm:
-                result['service_offering'] = vm['serviceofferingname']
+                ansible_facts['service_offering'] = vm['serviceofferingname']
 
             if 'zonename' in vm:
-                result['zone'] = vm['zonename']
+                ansible_facts['zone'] = vm['zonename']
 
             if 'templatename' in vm:
-                result['template'] = vm['templatename']
+                ansible_facts['template'] = vm['templatename']
 
             if 'created' in vm:
-                result['created'] = vm['created']
+                ansible_facts['created'] = vm['created']
 
             if 'tags' in vm:
                 tags = {}
@@ -505,13 +506,15 @@ def main():
                   key = tag['key']
                   value = tag['value']
                   tags[key] = value
-                result['tags'] = tags
+                ansible_facts['tags'] = tags
 
             if 'nic' in vm:
                 for nic in vm['nic']:
                     if nic['isdefault']:
-                        result['default_ip'] = nic['ipaddress']
-                result['nic'] = vm['nic']
+                        ansible_facts['default_ip'] = nic['ipaddress']
+                ansible_facts['nic'] = vm['nic']
+            result['ansible_facts'] = {}
+            result['ansible_facts']['cloudstack'] = ansible_facts
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
