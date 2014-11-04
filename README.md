@@ -22,7 +22,6 @@ Examples
 
 # Create a virtual machine on CloudStack
 - local_action:
-    module: cs_vm
     module: cloudstack_vm
     name: web-vm-1
     template: 'Linux Debian 7 64-bit'
@@ -37,7 +36,7 @@ Examples
     module: cloudstack_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
-    key_name='john@example.com'
+    ssh_key='john@example.com'
     api_key='...'
     secret_key='...'
     url: https://api.exoscale.ch/compute
