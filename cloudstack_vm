@@ -543,6 +543,9 @@ def main():
             if 'created' in vm:
                 ansible_facts['created'] = vm['created']
 
+            if 'state' in vm:
+                ansible_facts['state'] = vm['state']
+
             if 'tags' in vm:
                 tags = {}
                 for tag in vm['tags']:
