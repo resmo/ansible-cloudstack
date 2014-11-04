@@ -65,6 +65,12 @@ options:
     required: false
     default: null
     aliases: []
+  iso:
+    description:
+      - Name or id of the ISO to be used for creating the new virtual machine. Required when using C(state=created).
+    required: false
+    default: null
+    aliases: []
   networks:
     description:
       - List of networks to use for the new virtual machine.
@@ -195,19 +201,28 @@ def get_service_offering_id(module, cs):
     module.fail_json(msg="Service offering '%s' not found" % service_offering)
 
 
-def get_template_id(module, cs):
+def get_template_or_iso_id(module, cs):
     template = module.params.get('template')
+    iso = module.params.get('iso')
 
-    if not template:
-        module.fail_json(msg="template is required.")
+    if not template and not iso:
+        module.fail_json(msg="template or iso is required.")
 
-    templates = cs.listTemplates(templatefilter='executable')
-    if templates:
-        for t in templates['template']:
-            if t['name'] == template or t['id'] == template:
-                return t['id']
-    module.fail_json(msg="template '%s' not found" % template)
+    if template:
+        templates = cs.listTemplates(templatefilter='executable')
+        if templates:
+            for t in templates['template']:
+                if t['name'] == template or t['id'] == template:
+                    return t['id']
+        module.fail_json(msg="template '%s' not found" % template)
 
+    if iso:
+        isos = cs.listIsos()
+        if isos:
+            for i in isos['iso']:
+                if i['name'] == iso or i['id'] == iso:
+                    return i['id']
+        module.fail_json(msg="iso '%s' not found" % iso)
 
 def get_disk_offering_id(module, cs):
     disk_offering = module.params.get('disk_offering')
@@ -295,7 +310,7 @@ def create_vm(module, cs):
 
     if not vm:
         args = {}
-        args['templateid']          = get_template_id(module, cs)
+        args['templateid']          = get_template_or_iso_id(module, cs)
         args['zoneid']              = get_zone_id(module, cs)
         args['serviceofferingid']   = get_service_offering_id(module, cs)
         args['projectid']           = get_project_id(module, cs)
@@ -420,6 +435,7 @@ def main():
             state = dict(choices=['created', 'started', 'running', 'booted', 'stopped', 'halted', 'restarted', 'rebooted', 'present', 'absent', 'destroyed', 'expunged'], default='present'),
             service_offering = dict(default=None),
             template = dict(default=None),
+            iso = dict(default=None),
             networks = dict(type='list', default=None),
             disk_offering = dict(default=None),
             security_groups = dict(type='list', aliases= [ 'security_group' ], default=None),
@@ -496,6 +512,9 @@ def main():
 
             if 'templatename' in vm:
                 ansible_facts['template'] = vm['templatename']
+
+            if 'isoname' in vm:
+                ansible_facts['iso'] = vm['isoname']
 
             if 'created' in vm:
                 ansible_facts['created'] = vm['created']
