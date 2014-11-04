@@ -271,6 +271,20 @@ def get_zone_id(module, cs):
     module.fail_json(msg="zone '%s' not found" % zone)
 
 
+def get_hypervisor(module, cs):
+    hypervisor = module.params.get('hypervisor')
+    hypervisors = cs.listHypervisors()
+
+    if not hypervisor:
+        return hypervisors['hypervisor'][0]['name']
+
+    if hypervisors:
+        for h in hypervisors['hypervisor']:
+            if h['name'] == hypervisor:
+                return h['name']
+    module.fail_json(msg="hypervisor '%s' not available" % hypervisor)
+
+
 def get_vm(module, cs):
     vm_name = module.params.get('name')
     vm_display_name = module.params.get('display_name')
@@ -322,6 +336,7 @@ def create_vm(module, cs):
         args['projectid']           = get_project_id(module, cs)
         args['networkids']          = get_network_ids(module, cs)
         args['disk_offering_id']    = get_disk_offering_id(module, cs)
+        args['hypervisor']          = get_hypervisor(module, cs)
 
         args['name']                = module.params.get('name')
         args['group']               = module.params.get('group')
@@ -446,6 +461,7 @@ def main():
             networks = dict(type='list', default=None),
             disk_offering = dict(default=None),
             disk_size = dict(default=None),
+            hypervisior = dict(default=None),
             security_groups = dict(type='list', aliases= [ 'security_group' ], default=None),
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
