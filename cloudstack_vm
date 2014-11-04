@@ -20,7 +20,7 @@
 
 DOCUMENTATION = '''
 ---
-module: cs_vm
+module: cloudstack_vm
 short_description: Create, start, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
@@ -139,7 +139,7 @@ EXAMPLES = '''
 ---
 # Create a virtual machine on CloudStack
 - local_action:
-    module: cs_vm
+    module: cloudstack_vm
     name: web-vm-1
     template: 'Linux Debian 7 64-bit'
     ssh_key: 'john@example.com'
@@ -150,7 +150,7 @@ EXAMPLES = '''
 
 # Create a virtual machine on Exoscale
 - local_action:
-    module: cs_vm
+    module: cloudstack_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
     ssh_key='john@example.com'
@@ -163,15 +163,15 @@ EXAMPLES = '''
 
 
 # Stop a virtual machine, credentials used in $HOME/.cloudstack.ini
-- local_action: cs_vm name=web-vm-1 state=stopped
+- local_action: cloudstack_vm name=web-vm-1 state=stopped
 
 
 # Start a virtual machine, credentials used in $HOME/.cloudstack.ini
-- local_action: cs_vm name=web-vm-1 state=started
+- local_action: cloudstack_vm name=web-vm-1 state=started
 
 
 # Remove a virtual machine, credentials used in $HOME/.cloudstack.ini
-- local_action: cs_vm name=web-vm-1 state=absent
+- local_action: cloudstack_vm name=web-vm-1 state=absent
 '''
 
 try:

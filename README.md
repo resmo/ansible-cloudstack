@@ -13,7 +13,7 @@ Examples
 
 ```
 # Create a SSH keypair
-- local_action: cs_sshkey name=john@example.com
+- local_action: cloudstack_sshkey name=john@example.com
   register: key
 
 # Show the private key.
@@ -23,6 +23,7 @@ Examples
 # Create a virtual machine on CloudStack
 - local_action:
     module: cs_vm
+    module: cloudstack_vm
     name: web-vm-1
     template: 'Linux Debian 7 64-bit'
     ssh_key: 'john@example.com'
@@ -33,7 +34,7 @@ Examples
 
 # Create a virtual machine on Exoscale
 - local_action:
-    module: cs_vm
+    module: cloudstack_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
     key_name='john@example.com'
@@ -47,13 +48,13 @@ Examples
 
 
 # Stop a virtual machine
-- local_action: cs_vm name=web-vm-1 state=stopped
+- local_action: cloudstack_vm name=web-vm-1 state=stopped
 
 
 # Start a virtual machine
-- local_action: cs_vm name=web-vm-1 state=started
+- local_action: cloudstack_vm name=web-vm-1 state=started
 
 
 # Remove a virtual machine on CloudStack
-- local_action: cs_vm name=web-vm-1 state=absent
+- local_action: cloudstack_vm name=web-vm-1 state=absent
 ```
