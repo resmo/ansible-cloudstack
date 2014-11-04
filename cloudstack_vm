@@ -335,7 +335,7 @@ def create_vm(module, cs):
         args['serviceofferingid']   = get_service_offering_id(module, cs)
         args['projectid']           = get_project_id(module, cs)
         args['networkids']          = get_network_ids(module, cs)
-        args['disk_offering_id']    = get_disk_offering_id(module, cs)
+        args['diskofferingid']      = get_disk_offering_id(module, cs)
         args['hypervisor']          = get_hypervisor(module, cs)
 
         args['name']                = module.params.get('name')
