@@ -1,0 +1,13 @@
+---
+- hosts: localhost
+  connection: local
+  tasks:
+
+  - cloudstack_sshkey: name='key@work' public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
+
+  - cloudstack_vm:
+      name: web-vm-10
+      iso: 'Debian 7 netinst'
+      ssh_key: 'key@work'
+      disk_offering: 'PerfPlus Storage'
+      disk_size: '20'
