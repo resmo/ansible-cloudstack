@@ -61,13 +61,13 @@ options:
     aliases: []
   template:
     description:
-      - Name or id of the template to be used for creating the new virtual machine. Required when using C(state=created).
+      - Name or id of the template to be used for creating the new virtual machine. Required when using C(state=created). Mutually exclusive with C(ISO) option.
     required: false
     default: null
     aliases: []
   iso:
     description:
-      - Name or id of the ISO to be used for creating the new virtual machine. Required when using C(state=created).
+      - Name or id of the ISO to be used for creating the new virtual machine. Required when using C(state=created). Mutually exclusive with C(template) option.
     required: false
     default: null
     aliases: []
@@ -214,6 +214,9 @@ def get_template_or_iso_id(module, cs):
     if not template and not iso:
         module.fail_json(msg="template or iso is required.")
 
+    if template and iso:
+        module.fail_json(msg="template are iso are mutually exclusive.")
+
     if template:
         templates = cs.listTemplates(templatefilter='executable')
         if templates:
@@ -222,13 +225,14 @@ def get_template_or_iso_id(module, cs):
                     return t['id']
         module.fail_json(msg="template '%s' not found" % template)
 
-    if iso:
+    elif iso:
         isos = cs.listIsos()
         if isos:
             for i in isos['iso']:
                 if i['name'] == iso or i['id'] == iso:
                     return i['id']
         module.fail_json(msg="iso '%s' not found" % iso)
+
 
 def get_disk_offering_id(module, cs):
     disk_offering = module.params.get('disk_offering')
