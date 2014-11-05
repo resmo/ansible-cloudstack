@@ -71,6 +71,13 @@ options:
     required: false
     default: null
     aliases: []
+  hypervisior:
+    description:
+      - Name the hypervisior to be used for creating the new virtual machine. Relevant when using C(state=created) and option C(ISO) is used. If not set, first found Hypervisor will be used.
+    required: false
+    default: null
+    choices: [ 'KVM', 'VMware', 'BareMetal', 'XenServer', 'LXC', 'HyperV', 'UCS', 'OVM' ]
+    aliases: []
   networks:
     description:
       - List of networks to use for the new virtual machine.
