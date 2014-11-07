@@ -193,6 +193,8 @@ EXAMPLES = '''
 - local_action: cloudstack_vm name=web-vm-1 state=absent
 '''
 
+import base64
+
 try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:
@@ -353,6 +355,11 @@ def create_vm(module, cs):
         args['group']               = module.params.get('group')
         args['keypair']             = module.params.get('ssh_key')
         args['size']                = module.params.get('disk_size')
+
+        user_data = module.params.get('user_data')
+        if user_data:
+            user_data = base64.b64encode(b(user_data).decode('ascii'))
+            args['userdata'] = user_data
 
         display_name = module.params.get('display_name')
         if not display_name:
