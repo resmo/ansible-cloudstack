@@ -530,6 +530,10 @@ def main():
             (result, vm) = restart_vm(module, cs)
 
         if vm:
+
+            if 'state' in vm and vm['state'] == 'Error':
+                module.fail_json(msg="Virtual machine named '%s' in error state." % module.params.get('name'))
+
             ansible_facts = {}
             if 'id' in vm:
                 ansible_facts['id'] = vm['id']
