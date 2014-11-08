@@ -532,7 +532,7 @@ def main():
         if vm:
             ansible_facts = {}
             if 'id' in vm:
-              ansible_facts['id'] = vm['id']
+                ansible_facts['id'] = vm['id']
 
             if 'name' in vm:
                 ansible_facts['name'] = vm['name']
@@ -567,9 +567,9 @@ def main():
             if 'tags' in vm:
                 tags = {}
                 for tag in vm['tags']:
-                  key = tag['key']
-                  value = tag['value']
-                  tags[key] = value
+                    key = tag['key']
+                    value = tag['value']
+                    tags[key] = value
                 ansible_facts['tags'] = tags
 
             if 'nic' in vm:
