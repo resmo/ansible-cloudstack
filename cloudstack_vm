@@ -562,7 +562,7 @@ def main():
                 ansible_facts['created'] = vm['created']
 
             if 'state' in vm:
-                ansible_facts['state'] = vm['state']
+                result['vm_state'] = vm['state']
 
             if 'tags' in vm:
                 tags = {}
