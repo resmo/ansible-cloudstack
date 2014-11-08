@@ -156,29 +156,34 @@ requirements: [ 'python library C(cs)' ]
 
 EXAMPLES = '''
 ---
-# Create a virtual machine on CloudStack
+# Create a virtual machine on CloudStack from an ISO
+# NOTE: Offering and ISO names depending on the CloudStack configuration.
 - local_action:
     module: cloudstack_vm
     name: web-vm-1
-    template: 'Linux Debian 7 64-bit'
-    ssh_key: 'john@example.com'
+    iso: 'Linux Debian 7 64-bit'
+    hypervisior: 'VMware'
+    service_offering: '1cpu_1gb'
+    disk_offering: 'PerfPlus Storage'
+    disk_size: '20'
     api_key: '...'
     secret_key: '...'
     url: https://cloud.example.com/client/api
 
 
-# Create a virtual machine on Exoscale
+# Create a virtual machine on Exoscale Public Cloud
 - local_action:
     module: cloudstack_vm
     name: web-vm-1
     template='Linux Debian 7 64-bit'
+    service_offering: 'Tiny'
     ssh_key='john@example.com'
     api_key='...'
     secret_key='...'
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg='default ip {{ ansible.cloudstack_default_ip }}'
+- debug: msg='default ip {{ ansible.cloudstack_default_ip }} and is in state {{ vm.vm_state }}'
 
 
 # Stop a virtual machine, credentials used in $HOME/.cloudstack.ini
