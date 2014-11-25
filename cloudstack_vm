@@ -539,36 +539,35 @@ def main():
             if 'state' in vm and vm['state'] == 'Error':
                 module.fail_json(msg="Virtual machine named '%s' in error state." % module.params.get('name'))
 
-            ansible_facts = {}
             if 'id' in vm:
-                ansible_facts['id'] = vm['id']
+                result['id'] = vm['id']
 
             if 'name' in vm:
-                ansible_facts['name'] = vm['name']
+                result['name'] = vm['name']
 
             if 'displayname' in vm:
-                ansible_facts['display_name'] = vm['displayname']
+                result['display_name'] = vm['displayname']
 
             if 'group' in vm:
-                ansible_facts['group'] = vm['group']
+                result['group'] = vm['group']
 
             if 'password' in vm:
                 result['password'] = vm['password']
 
             if 'serviceofferingname' in vm:
-                ansible_facts['service_offering'] = vm['serviceofferingname']
+                result['service_offering'] = vm['serviceofferingname']
 
             if 'zonename' in vm:
-                ansible_facts['zone'] = vm['zonename']
+                result['zone'] = vm['zonename']
 
             if 'templatename' in vm:
-                ansible_facts['template'] = vm['templatename']
+                result['template'] = vm['templatename']
 
             if 'isoname' in vm:
-                ansible_facts['iso'] = vm['isoname']
+                result['iso'] = vm['isoname']
 
             if 'created' in vm:
-                ansible_facts['created'] = vm['created']
+                result['created'] = vm['created']
 
             if 'state' in vm:
                 result['vm_state'] = vm['state']
@@ -579,15 +578,13 @@ def main():
                     key = tag['key']
                     value = tag['value']
                     tags[key] = value
-                ansible_facts['tags'] = tags
+                result['tags'] = tags
 
             if 'nic' in vm:
                 for nic in vm['nic']:
                     if nic['isdefault']:
-                        ansible_facts['default_ip'] = nic['ipaddress']
-                ansible_facts['nic'] = vm['nic']
-            result['ansible_facts'] = {}
-            result['ansible_facts']['cloudstack'] = ansible_facts
+                        result['default_ip'] = nic['ipaddress']
+                result['nic'] = vm['nic']
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
