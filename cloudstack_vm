@@ -340,12 +340,6 @@ def get_network_ids(module, cs):
     return ','.join(network_ids)
 
 
-def create_vm(module, cs):
-    result = {}
-    result['changed'] = False
-
-    vm = get_vm(module, cs)
-
 def poll_vm_job(vm, cs):
     if 'jobid' in vm:
         while True:
@@ -358,6 +352,7 @@ def poll_vm_job(vm, cs):
     return vm
 
 
+def create_vm(module, cs, result, vm):
     if not vm:
         args = {}
         args['templateid']          = get_template_or_iso_id(module, cs)
@@ -409,13 +404,23 @@ def poll_vm_job(vm, cs):
     return (result, vm)
 
 
-def remove_vm(module, cs):
-    result = {}
-    result['changed'] = False
-    vm = get_vm(module, cs)
+def scale_vm(module, cs, result, vm):
+    if vm:
+        service_offering_id = get_service_offering_id(module, cs)
+        if vm['serviceofferingid'] != service_offering_id:
+            (result, vm) = stop_vm(module, cs, result, vm)
+            vm = poll_vm_job(vm, cs)
+            cs.scaleVirtualMachine(id=vm['id'], serviceofferingid=service_offering_id)
+            (result, vm) = start_vm(module, cs, result, vm)
+            vm = poll_vm_job(vm, cs)
+            result['changed'] = True
+    return (result, vm)
+
+
+def remove_vm(module, cs, result, vm):
     if vm:
         if not module.check_mode:
-            res = cs.destroyVirtualMachine(id=vm['id'])
+            vm = cs.destroyVirtualMachine(id=vm['id'])
             if 'errortext' in res:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
@@ -427,10 +432,7 @@ def remove_vm(module, cs):
     return (result, vm)
 
 
-def expunge_vm(module, cs):
-    result = {}
-    result['changed'] = False
-    vm = get_vm(module, cs)
+def expunge_vm(module, cs, result, vm):
     if vm:
         if not module.check_mode:
             res = cs.expungeVirtualMachine(id=vm['id'])
@@ -440,16 +442,17 @@ def expunge_vm(module, cs):
     return (result, vm)
 
 
-def stop_vm(module, cs):
-    result = {}
-    result['changed'] = False
-    vm = get_vm(module, cs)
+def stop_vm(module, cs, result, vm):
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
 
     if vm['state'] != 'Stopped' and vm['state'] != 'Stopping':
         if not module.check_mode:
-            cs.stopVirtualMachine(id=vm['id'])
+            vm = cs.stopVirtualMachine(id=vm['id'])
+
+        if 'errortext' in vm:
+            module.fail_json(msg="Failed: '%s'" % vm['errortext'])
+
         poll_async = module.params.get('poll_async')
         if poll_async:
             vm = poll_vm_job(vm, cs)
@@ -458,15 +461,16 @@ def stop_vm(module, cs):
     return (result, vm)
 
 
-def start_vm(module, cs):
-    result = {}
-    result['changed'] = False
-    vm = get_vm(module, cs)
+def start_vm(module, cs, result, vm):
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
     if vm['state'] == 'Stopped' or vm['state'] == 'Stopping':
         if not module.check_mode:
-            cs.startVirtualMachine(id=vm['id'])
+            vm = cs.startVirtualMachine(id=vm['id'])
+
+        if 'errortext' in vm:
+            module.fail_json(msg="Failed: '%s'" % vm['errortext'])
+
         poll_async = module.params.get('poll_async')
         if poll_async:
             vm = poll_vm_job(vm, cs)
@@ -475,15 +479,13 @@ def start_vm(module, cs):
     return (result, vm)
 
 
-def restart_vm(module, cs):
-    result = {}
-    result['changed'] = False
-    vm = get_vm(module, cs)
+def restart_vm(module, cs, result, vm):
     if not vm:
         module.fail_json(msg="Virtual machine named '%s' not found" % module.params.get('name'))
     if vm['state'] == 'Running' or vm['state'] == 'Starting':
         if not module.check_mode:
-            cs.rebootVirtualMachine(id=vm['id'])
+            vm = cs.rebootVirtualMachine(id=vm['id'])
+
         poll_async = module.params.get('poll_async')
         if poll_async:
             vm = poll_vm_job(vm, cs)
@@ -539,23 +541,28 @@ def main():
         else:
             cs = CloudStack(**read_config())
 
+        vm = get_vm(module, cs)
+
         if state in ['absent', 'destroyed']:
-            (result, vm) = remove_vm(module, cs)
+            (result, vm) = remove_vm(module, cs, result, vm)
 
         elif state in ['expunged']:
-            (result, vm) = expunge_vm(module, cs)
+            (result, vm) = expunge_vm(module, cs, result, vm)
 
         elif state in ['present', 'created']:
-            (result, vm) = create_vm(module, cs)
+            if not vm:
+                (result, vm) = create_vm(module, cs, result, vm)
+            else:
+                (result, vm) = scale_vm(module, cs, result, vm)
 
         elif state in ['stopped', 'halted']:
-            (result, vm) = stop_vm(module, cs)
+            (result, vm) = stop_vm(module, cs, result, vm)
 
         elif state in ['started', 'running', 'booted']:
-            (result, vm) = start_vm(module, cs)
+            (result, vm) = start_vm(module, cs, result, vm)
 
         elif state in ['restarted', 'rebooted']:
-            (result, vm) = restart_vm(module, cs)
+            (result, vm) = restart_vm(module, cs, result, vm)
 
         if vm:
 
