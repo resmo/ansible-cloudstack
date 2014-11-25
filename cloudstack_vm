@@ -346,6 +346,18 @@ def create_vm(module, cs):
 
     vm = get_vm(module, cs)
 
+def poll_vm_job(vm, cs):
+    if 'jobid' in vm:
+        while True:
+            res = cs.queryAsyncJobResult(jobid=vm['jobid'])
+            if res['jobstatus'] != 0:
+                if 'jobresult' in res and 'virtualmachine' in res['jobresult']:
+                    vm = res['jobresult']['virtualmachine']
+                break
+            time.sleep(2)
+    return vm
+
+
     if not vm:
         args = {}
         args['templateid']          = get_template_or_iso_id(module, cs)
@@ -390,14 +402,8 @@ def create_vm(module, cs):
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
             poll_async = module.params.get('poll_async')
-            if 'jobid' in vm and poll_async:
-                while True:
-                    res = cs.queryAsyncJobResult(jobid=vm['jobid'])
-                    if res['jobstatus'] != 0:
-                        if 'jobresult' in res and 'virtualmachine' in res['jobresult']:
-                            vm = res['jobresult']['virtualmachine']
-                        break
-                    time.sleep(2)
+            if poll_async:
+                vm = poll_vm_job(vm, cs)
 
         result['changed'] = True
     return (result, vm)
@@ -412,6 +418,11 @@ def remove_vm(module, cs):
             res = cs.destroyVirtualMachine(id=vm['id'])
             if 'errortext' in res:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+            poll_async = module.params.get('poll_async')
+            if poll_async:
+                vm = poll_vm_job(vm, cs)
+
         result['changed'] = True
     return (result, vm)
 
@@ -439,6 +450,10 @@ def stop_vm(module, cs):
     if vm['state'] != 'Stopped' and vm['state'] != 'Stopping':
         if not module.check_mode:
             cs.stopVirtualMachine(id=vm['id'])
+        poll_async = module.params.get('poll_async')
+        if poll_async:
+            vm = poll_vm_job(vm, cs)
+
         result['changed'] = True
     return (result, vm)
 
@@ -452,6 +467,10 @@ def start_vm(module, cs):
     if vm['state'] == 'Stopped' or vm['state'] == 'Stopping':
         if not module.check_mode:
             cs.startVirtualMachine(id=vm['id'])
+        poll_async = module.params.get('poll_async')
+        if poll_async:
+            vm = poll_vm_job(vm, cs)
+
         result['changed'] = True
     return (result, vm)
 
@@ -465,6 +484,10 @@ def restart_vm(module, cs):
     if vm['state'] == 'Running' or vm['state'] == 'Starting':
         if not module.check_mode:
             cs.rebootVirtualMachine(id=vm['id'])
+        poll_async = module.params.get('poll_async')
+        if poll_async:
+            vm = poll_vm_job(vm, cs)
+
         result['changed'] = True
     elif vm['state'] == 'Stopping' or vm['state'] == 'Stopped':
         module.fail_json(msg="Virtual machine named '%s' not running, not restarted" % module.params.get('name'))
