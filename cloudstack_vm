@@ -399,7 +399,7 @@ def poll_vm_job(vm, cs):
             vm = cs.deployVirtualMachine(**args)
 
             if 'errortext' in vm:
-                module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                module.fail_json(msg="Failed: '%s'" % vm['errortext'])
 
             poll_async = module.params.get('poll_async')
             if poll_async:
