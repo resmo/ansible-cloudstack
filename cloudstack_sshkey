@@ -26,7 +26,7 @@ description:
     - If no public key is provided, a new ssh private/public key will be created, the private key will be returned.
     - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs.
     - Supports check mode.
-version_added: '1.8'
+version_added: '1.9'
 options:
   name:
     description:

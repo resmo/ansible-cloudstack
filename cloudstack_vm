@@ -26,7 +26,7 @@ description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
     - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), (also see https://github.com/exoscale/cs on which this module depends on).
     - This module supports check mode.
-version_added: '1.8'
+version_added: '1.9'
 options:
   name:
     description:
