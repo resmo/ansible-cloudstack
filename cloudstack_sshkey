@@ -107,12 +107,7 @@ def get_project_id(module, cs):
     module.fail_json(msg="project '%s' not found" % project)
 
 
-def register_ssh_key(module, cs):
-
-    result = {}
-    result['changed'] = False
-
-    ssh_key = get_ssh_key(module, cs)
+def register_ssh_key(module, cs, result, ssh_key):
     if not ssh_key:
         args = {}
         project_id = get_project_id(module, cs)
@@ -127,12 +122,7 @@ def register_ssh_key(module, cs):
     return (result, ssh_key)
 
 
-def create_ssh_key(module, cs):
-
-    result = {}
-    result['changed'] = False
-
-    ssh_key = get_ssh_key(module, cs)
+def create_ssh_key(module, cs, result, ssh_key):
     if not ssh_key:
         args = {}
         project_id = get_project_id(module, cs)
@@ -147,12 +137,7 @@ def create_ssh_key(module, cs):
     return (result, ssh_key)
 
 
-def remove_ssh_key(module, cs):
-
-    result = {}
-    result['changed'] = False
-
-    ssh_key = get_ssh_key(module, cs)
+def remove_ssh_key(module, cs, result, ssh_key):
     if ssh_key:
         result['changed'] = True
         if not module.check_mode:
@@ -210,13 +195,15 @@ def main():
         else:
             cs = CloudStack(**read_config())
 
+        ssh_key = get_ssh_key(module, cs)
+
         if state in ['absent']:
-            (result, ssh_key) = remove_ssh_key(module, cs)
+            (result, ssh_key) = remove_ssh_key(module, cs, result, ssh_key)
         else:
             if module.params.get('public_key'):
-                (result, ssh_key) = register_ssh_key(module, cs)
+                (result, ssh_key) = register_ssh_key(module, cs, result, ssh_key)
             else:
-                (result, ssh_key) = create_ssh_key(module, cs)
+                (result, ssh_key) = create_ssh_key(module, cs, result, ssh_key)
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
