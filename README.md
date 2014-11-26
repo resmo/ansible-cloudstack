@@ -35,15 +35,14 @@ Examples
 - local_action:
     module: cloudstack_vm
     name: web-vm-1
-    template='Linux Debian 7 64-bit'
-    ssh_key='john@example.com'
-    api_key='...'
-    secret_key='...'
+    template: 'Linux Debian 7 64-bit'
+    ssh_key: 'john@example.com'
+    api_key: '...'
+    secret_key: '...'
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg="ip addresses {{ item }}"
-  with_items: vm.ip_addresses
+- debug: msg="ip address {{ vm.default_ip }}"
 
 
 # Stop a virtual machine

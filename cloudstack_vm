@@ -21,10 +21,10 @@
 DOCUMENTATION = '''
 ---
 module: cloudstack_vm
-short_description: Create, start, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
+short_description: Create, start, scale, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
-    - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), (also see https://github.com/exoscale/cs on which this module depends on).
+    - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale. Existing virtual machines will be scaled if service offering is different by stopping and starting the virtual machine.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:
@@ -183,7 +183,7 @@ EXAMPLES = '''
     url: https://api.exoscale.ch/compute
   register: vm
 
-- debug: msg='default ip {{ ansible.cloudstack_default_ip }} and is in state {{ vm.vm_state }}'
+- debug: msg='default ip {{ vm.default_ip }} and is in state {{ vm.vm_state }}'
 
 
 # Stop a virtual machine, credentials used in $HOME/.cloudstack.ini
@@ -204,7 +204,7 @@ try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:
     print("failed=True " + \
-        "msg='python library cs required. pip install cs'")
+        "msg='python library cs required: pip install cs'")
     sys.exit(1)
 
 

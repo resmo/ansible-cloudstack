@@ -24,8 +24,8 @@ module: cloudstack_sshkey
 short_description: Create, register and remove ssh keys on Apache CloudStack based clouds.
 description:
     - If no public key is provided, a new ssh private/public key will be created, the private key will be returned.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini), also see https://github.com/exoscale/cs.
-    - Supports check mode.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), see https://github.com/exoscale/cs on which this module depends on.
+    - This module supports check mode.
 version_added: '1.9'
 options:
   name:
