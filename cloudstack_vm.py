@@ -24,7 +24,7 @@ module: cloudstack_vm
 short_description: Create, start, scale, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale. Existing virtual machines will be scaled if service offering is different by stopping and starting the virtual machine.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), see https://github.com/exoscale/cs on which this module depends on.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:
@@ -138,13 +138,13 @@ options:
     required: false
     default: null
     aliases: []
-  secret_key:
+  api_secret:
     description:
       - Secret key of the CloudStack API.
     required: false
     default: null
     aliases: []
-  url:
+  api_url:
     description:
       - URL of the CloudStack API e.g. https://cloud.example.com/client/api.
     required: false
@@ -167,8 +167,8 @@ EXAMPLES = '''
     disk_offering: 'PerfPlus Storage'
     disk_size: '20'
     api_key: '...'
-    secret_key: '...'
-    url: https://cloud.example.com/client/api
+    api_secret: '...'
+    api_url: https://cloud.example.com/client/api
 
 
 # Create a virtual machine on Exoscale Public Cloud
@@ -179,8 +179,8 @@ EXAMPLES = '''
     service_offering: 'Tiny'
     ssh_key='john@example.com'
     api_key='...'
-    secret_key='...'
-    url: https://api.exoscale.ch/compute
+    api_secret='...'
+    api_url: https://api.exoscale.ch/compute
   register: vm
 
 - debug: msg='default ip {{ vm.default_ip }} and is in state {{ vm.vm_state }}'
@@ -450,13 +450,11 @@ def stop_vm(module, cs, result, vm):
     if vm['state'] != 'Stopped' and vm['state'] != 'Stopping':
         if not module.check_mode:
             vm = cs.stopVirtualMachine(id=vm['id'])
-
-        if 'errortext' in vm:
-            module.fail_json(msg="Failed: '%s'" % vm['errortext'])
-
-        poll_async = module.params.get('poll_async')
-        if poll_async:
-            vm = poll_vm_job(vm, cs)
+            if 'errortext' in vm:
+                module.fail_json(msg="Failed: '%s'" % vm['errortext'])
+            poll_async = module.params.get('poll_async')
+            if poll_async:
+                vm = poll_vm_job(vm, cs)
 
         result['changed'] = True
     return (result, vm)
@@ -468,13 +466,11 @@ def start_vm(module, cs, result, vm):
     if vm['state'] == 'Stopped' or vm['state'] == 'Stopping':
         if not module.check_mode:
             vm = cs.startVirtualMachine(id=vm['id'])
-
-        if 'errortext' in vm:
-            module.fail_json(msg="Failed: '%s'" % vm['errortext'])
-
-        poll_async = module.params.get('poll_async')
-        if poll_async:
-            vm = poll_vm_job(vm, cs)
+            if 'errortext' in vm:
+                module.fail_json(msg="Failed: '%s'" % vm['errortext'])
+            poll_async = module.params.get('poll_async')
+            if poll_async:
+                vm = poll_vm_job(vm, cs)
 
         result['changed'] = True
     return (result, vm)
@@ -486,10 +482,9 @@ def restart_vm(module, cs, result, vm):
     if vm['state'] == 'Running' or vm['state'] == 'Starting':
         if not module.check_mode:
             vm = cs.rebootVirtualMachine(id=vm['id'])
-
-        poll_async = module.params.get('poll_async')
-        if poll_async:
-            vm = poll_vm_job(vm, cs)
+            poll_async = module.params.get('poll_async')
+            if poll_async:
+                vm = poll_vm_job(vm, cs)
 
         result['changed'] = True
     elif vm['state'] == 'Stopping' or vm['state'] == 'Stopped':
@@ -518,8 +513,8 @@ def main():
             poll_async = dict(default=True),
             ssh_key = dict(default=None),
             api_key = dict(default=None),
-            secret_key = dict(default=None),
-            url = dict(default=None),
+            api_secret = dict(default=None),
+            api_url = dict(default=None),
         ),
         supports_check_mode=True
     )
@@ -530,14 +525,14 @@ def main():
 
     try:
         api_key = module.params.get('api_key')
-        secret_key = module.params.get('secret_key')
-        url = module.params.get('url')
+        api_secret = module.params.get('secret_key')
+        api_url = module.params.get('api_url')
 
-        if api_key and secret_key and url:
+        if api_key and api_secret and api_url:
             cs = CloudStack(
-                endpoint=url,
+                endpoint=api_url,
                 key=api_key,
-                secret=secret_key
+                secret=api_secret
                 )
         else:
             cs = CloudStack(**read_config())

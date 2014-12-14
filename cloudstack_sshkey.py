@@ -24,7 +24,7 @@ module: cloudstack_sshkey
 short_description: Create, register and remove ssh keys on Apache CloudStack based clouds.
 description:
     - If no public key is provided, a new ssh private/public key will be created, the private key will be returned.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(url), C(api_key), C(secret_key), see https://github.com/exoscale/cs on which this module depends on.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:
@@ -32,6 +32,12 @@ options:
     description:
       - Name of public key.
     required: true
+    default: null
+    aliases: []
+  project:
+    description:
+      - Name of the project the public key to be registered in.
+    required: false
     default: null
     aliases: []
   state:
@@ -53,13 +59,13 @@ options:
     required: false
     default: null
     aliases: []
-  secret_key:
+  api_secret:
     description:
       - Secret key of the CloudStack API.
     required: false
     default: null
     aliases: []
-  url:
+  api_url:
     description:
       - URL of the CloudStack API e.g. https://cloud.example.com/client/api.
     required: false
@@ -107,10 +113,9 @@ def get_project_id(module, cs):
     module.fail_json(msg="project '%s' not found" % project)
 
 
-def register_ssh_key(module, cs, result, ssh_key):
+def register_ssh_key(module, cs, result, ssh_key, project_id):
     if not ssh_key:
         args = {}
-        project_id = get_project_id(module, cs)
         if project_id:
             args['projectid'] = project_id
 
@@ -122,12 +127,11 @@ def register_ssh_key(module, cs, result, ssh_key):
     return (result, ssh_key)
 
 
-def create_ssh_key(module, cs, result, ssh_key):
+def create_ssh_key(module, cs, result, ssh_key, project_id):
     if not ssh_key:
         args = {}
-        project_id = get_project_id(module, cs)
         if project_id:
-            args['projectid'] = project_id 
+            args['projectid'] = project_id
 
         result['changed'] = True
         if not module.check_mode:
@@ -147,11 +151,10 @@ def remove_ssh_key(module, cs, result, ssh_key):
     return (result, ssh_key)
 
 
-def get_ssh_key(module, cs):
+def get_ssh_key(module, cs, project_id):
 
     args = {}
 
-    project_id = get_project_id(module, cs)
     if project_id:
         args['projectid'] = project_id
 
@@ -169,10 +172,11 @@ def main():
         argument_spec = dict(
             name = dict(required=True, default=None),
             public_key = dict(default=None),
+            project = dict(default=None),
             state = dict(choices=['present', 'absent'], default='present'),
             api_key = dict(default=None),
-            secret_key = dict(default=None),
-            url = dict(default=None),
+            api_secret = dict(default=None),
+            api_url = dict(default=None),
         ),
         supports_check_mode=True
     )
@@ -183,27 +187,28 @@ def main():
 
     try:
         api_key = module.params.get('api_key')
-        secret_key = module.params.get('secret_key')
-        url = module.params.get('url')
+        api_secret = module.params.get('secret_key')
+        api_url = module.params.get('api_url')
 
-        if api_key and secret_key and url:
+        if api_key and api_secret and api_url:
             cs = CloudStack(
-                endpoint=url,
+                endpoint=api_url,
                 key=api_key,
-                secret=secret_key
+                secret=api_secret
                 )
         else:
             cs = CloudStack(**read_config())
 
-        ssh_key = get_ssh_key(module, cs)
+        project_id = get_project_id(module, cs)
+        ssh_key = get_ssh_key(module, cs, project_id)
 
         if state in ['absent']:
             (result, ssh_key) = remove_ssh_key(module, cs, result, ssh_key)
         else:
             if module.params.get('public_key'):
-                (result, ssh_key) = register_ssh_key(module, cs, result, ssh_key)
+                (result, ssh_key) = register_ssh_key(module, cs, result, ssh_key, project_id)
             else:
-                (result, ssh_key) = create_ssh_key(module, cs, result, ssh_key)
+                (result, ssh_key) = create_ssh_key(module, cs, result, ssh_key, project_id)
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
