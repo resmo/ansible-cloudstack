@@ -303,14 +303,13 @@ def get_hypervisor(module, cs):
     module.fail_json(msg="hypervisor '%s' not available" % hypervisor)
 
 
-def get_vm(module, cs):
+def get_vm(module, cs, project_id):
     vm_name = module.params.get('name')
     vm_display_name = module.params.get('display_name')
 
     if not vm_name and not vm_display_name:
         module.fail_json(msg='name or display_name is required')
 
-    project_id = get_project_id(module, cs)
     vms = cs.listVirtualMachines(projectid=project_id)
     if vms:
         for v in vms['virtualmachine']:
@@ -319,13 +318,12 @@ def get_vm(module, cs):
     return None
 
 
-def get_network_ids(module, cs):
+def get_network_ids(module, cs, project_id):
     networks = module.params.get('networks')
 
     if not networks:
         return None
 
-    project_id = get_project_id(module, cs)
     zone_id = get_zone_id(module, cs)
     if project_id:
         network_res = cs.listNetworks(projectid=project_id, zoneid=zone_id)
@@ -352,14 +350,14 @@ def poll_job(cs, job, key):
     return job
 
 
-def create_vm(module, cs, result, vm):
+def create_vm(module, cs, result, vm, project_id):
     if not vm:
         args = {}
         args['templateid']          = get_template_or_iso_id(module, cs)
         args['zoneid']              = get_zone_id(module, cs)
         args['serviceofferingid']   = get_service_offering_id(module, cs)
-        args['projectid']           = get_project_id(module, cs)
-        args['networkids']          = get_network_ids(module, cs)
+        args['projectid']           = project_id
+        args['networkids']          = get_network_ids(module, cs, project_id)
         args['diskofferingid']      = get_disk_offering_id(module, cs)
         args['hypervisor']          = get_hypervisor(module, cs)
 
@@ -537,7 +535,8 @@ def main():
         else:
             cs = CloudStack(**read_config())
 
-        vm = get_vm(module, cs)
+        project_id = get_project_id(module, cs)
+        vm = get_vm(module, cs, project_id)
 
         if state in ['absent', 'destroyed']:
             (result, vm) = remove_vm(module, cs, result, vm)
@@ -547,7 +546,7 @@ def main():
 
         elif state in ['present', 'created']:
             if not vm:
-                (result, vm) = create_vm(module, cs, result, vm)
+                (result, vm) = create_vm(module, cs, result, vm, project_id)
             else:
                 (result, vm) = scale_vm(module, cs, result, vm)
 
