@@ -269,10 +269,10 @@ def get_iso(module, cs, zone_id, project_id):
 def remove_iso(module, cs, result, iso, zone_id):
     if iso:
         result['changed'] = True
+        args = {}
+        args['id'] = iso['id']
+        args['zoneid'] = zone_id
         if not module.check_mode:
-            args = {}
-            args['id'] = iso['id']
-            args['zoneid'] = zone_id
             res = cs.deleteIso(**args)
     return (result, iso)
 
