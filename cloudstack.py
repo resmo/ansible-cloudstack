@@ -24,8 +24,13 @@
 Ansible CloudStack external inventory script.
 =============================================
 
-Generates Ansible inventory from CloudStack. Configuration is read from 
-'cloudstack.ini'.
+Generates Ansible inventory from CloudStack. Configuration is read from
+'cloudstack.ini'. If you need to pass the project, write a simple wrapper
+script, e.g. project_cloudstack.sh:
+
+  #!/bin/bash
+  cloudstack.py --project <your_project> $@
+
 
 When run against a specific host, this script returns the following attributes
 based on the data obtained from CloudStack API:
@@ -34,12 +39,12 @@ based on the data obtained from CloudStack API:
     "cpu_number": 2,
     "nic": [
       {
-        "ip": "10.102.76.98", 
+        "ip": "10.102.76.98",
         "mac": "02:00:50:99:00:01",
-        "type": "Isolated", 
+        "type": "Isolated",
         "netmask": "255.255.255.0",
         "gateway": "10.102.76.1"
-      }, 
+      },
       {
         "ip": "10.102.138.63",
         "mac": "06:b7:5a:00:14:84",
@@ -47,14 +52,14 @@ based on the data obtained from CloudStack API:
         "netmask": "255.255.255.0",
         "gateway": "10.102.138.1"
       }
-    ], 
+    ],
     "default_ip": "10.102.76.98",
     "zone": "ZUERICH",
     "created": "2014-07-02T07:53:50+0200",
     "hypervisor": "VMware",
     "memory": 2048,
     "state": "Running",
-    "tags": [], 
+    "tags": [],
     "cpu_speed": 1800,
     "affinit_ygroup": [],
     "service_offering": "Small",
@@ -125,7 +130,7 @@ class CloudStackInventory(object):
         hosts = self.cs.listVirtualMachines(projectid=project_id)
         data = {}
         for host in hosts['virtualmachine']:
-            host_name = host['name']
+            host_name = host['displayname']
             if name == host_name:
                 data['zone'] = host['zonename']
                 if 'group' in host:
@@ -177,7 +182,7 @@ class CloudStackInventory(object):
 
         hosts = self.cs.listVirtualMachines(projectid=project_id)
         for host in hosts['virtualmachine']:
-            host_name = host['name']
+            host_name = host['displayname']
             data['all']['hosts'].append(host_name)
             data['_meta']['hostvars'][host_name] = {}
             data['_meta']['hostvars'][host_name]['zone'] = host['zonename']
@@ -185,7 +190,8 @@ class CloudStackInventory(object):
                 data['_meta']['hostvars'][host_name]['group'] = host['group']
             data['_meta']['hostvars'][host_name]['state'] = host['state']
             data['_meta']['hostvars'][host_name]['service_offering'] = host['serviceofferingname']
-            data['_meta']['hostvars'][host_name]['affinit_ygroup'] = host['affinitygroup']
+            data['_meta']['hostvars'][host_name]['affinity_group'] = host['affinitygroup']
+            data['_meta']['hostvars'][host_name]['security_group'] = host['securitygroup']
             data['_meta']['hostvars'][host_name]['cpu_number'] = host['cpunumber']
             data['_meta']['hostvars'][host_name]['cpu_speed'] = host['cpuspeed']
             if 'cpuused' in host:
@@ -210,7 +216,7 @@ class CloudStackInventory(object):
             group_name = ''
             if 'group' in host:
                 group_name = host['group']
-                
+
             if group_name and group_name in data:
                 data[group_name]['hosts'].append(host_name)
         return data
