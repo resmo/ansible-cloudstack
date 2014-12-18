@@ -340,16 +340,16 @@ def get_network_ids(module, cs):
     return ','.join(network_ids)
 
 
-def poll_vm_job(vm, cs):
-    if 'jobid' in vm:
+def poll_job(cs, job, key):
+    if 'jobid' in job:
         while True:
-            res = cs.queryAsyncJobResult(jobid=vm['jobid'])
+            res = cs.queryAsyncJobResult(jobid=job['jobid'])
             if res['jobstatus'] != 0:
-                if 'jobresult' in res and 'virtualmachine' in res['jobresult']:
-                    vm = res['jobresult']['virtualmachine']
+                if 'jobresult' in res and key in res['jobresult']:
+                    job = res['jobresult'][key]
                 break
             time.sleep(2)
-    return vm
+    return job
 
 
 def create_vm(module, cs, result, vm):
@@ -398,7 +398,7 @@ def create_vm(module, cs, result, vm):
 
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
 
         result['changed'] = True
     return (result, vm)
@@ -413,7 +413,7 @@ def scale_vm(module, cs, result, vm):
                 vm = poll_vm_job(vm, cs)
                 cs.scaleVirtualMachine(id=vm['id'], serviceofferingid=service_offering_id)
                 (result, vm) = start_vm(module, cs, result, vm)
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
             result['changed'] = True
     return (result, vm)
 
@@ -427,7 +427,7 @@ def remove_vm(module, cs, result, vm):
 
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
 
         result['changed'] = True
     return (result, vm)
@@ -454,7 +454,7 @@ def stop_vm(module, cs, result, vm):
                 module.fail_json(msg="Failed: '%s'" % vm['errortext'])
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
 
         result['changed'] = True
     return (result, vm)
@@ -470,7 +470,7 @@ def start_vm(module, cs, result, vm):
                 module.fail_json(msg="Failed: '%s'" % vm['errortext'])
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
 
         result['changed'] = True
     return (result, vm)
@@ -484,7 +484,7 @@ def restart_vm(module, cs, result, vm):
             vm = cs.rebootVirtualMachine(id=vm['id'])
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_vm_job(vm, cs)
+                vm = poll_job(cs, vm, 'virtualmachine')
 
         result['changed'] = True
     elif vm['state'] == 'Stopping' or vm['state'] == 'Stopped':
@@ -510,7 +510,7 @@ def main():
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
             zone = dict(default=None),
-            poll_async = dict(default=True),
+            poll_async = dict(choices=BOOLEANS, default=True),
             ssh_key = dict(default=None),
             api_key = dict(default=None),
             api_secret = dict(default=None),
