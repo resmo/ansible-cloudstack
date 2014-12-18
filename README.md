@@ -13,7 +13,7 @@ Note: You can pass the API credentials by module arguments `api_url`, `api_key` 
 Examples
 --------
 
-```
+~~~yaml
 # Upload an ISO (Note: this should have CloudStack SSH PubKey handling installed):
 - local_action:
      module: cloudstack_iso:
@@ -40,8 +40,6 @@ Examples
     disk_offering: Performance
     disk_size: 20
     ssh_key: 'john@example.com'
-
-- debug: msg="ip address {{ vm.default_ip }}"
 
 
 # Make a snapshot
@@ -72,4 +70,4 @@ Examples
 
 # Remove a virtual machine on CloudStack
 - local_action: cloudstack_vm name=web-vm-1 state=absent
-```
+~~~
