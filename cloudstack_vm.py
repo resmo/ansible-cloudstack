@@ -407,11 +407,14 @@ def scale_vm(module, cs, result, vm):
         service_offering_id = get_service_offering_id(module, cs)
         if vm['serviceofferingid'] != service_offering_id:
             if not module.check_mode:
+                vm_state = vm['state']
                 (result, vm) = stop_vm(module, cs, result, vm)
                 vm = poll_vm_job(vm, cs)
                 cs.scaleVirtualMachine(id=vm['id'], serviceofferingid=service_offering_id)
-                (result, vm) = start_vm(module, cs, result, vm)
-                vm = poll_job(cs, vm, 'virtualmachine')
+                # Start VM again if it ran before the scaling
+                if vm_state == 'Running':
+                    (result, vm) = start_vm(module, cs, result, vm)
+                    vm = poll_job(cs, vm, 'virtualmachine')
             result['changed'] = True
     return (result, vm)
 
