@@ -307,9 +307,6 @@ def get_vm(module, cs, project_id):
     vm_name = module.params.get('name')
     vm_display_name = module.params.get('display_name')
 
-    if not vm_name and not vm_display_name:
-        module.fail_json(msg='name or display_name is required')
-
     vms = cs.listVirtualMachines(projectid=project_id)
     if vms:
         for v in vms['virtualmachine']:
@@ -516,6 +513,9 @@ def main():
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
+        ),
+        required_one_of = (
+            ['name', 'display_name'],
         ),
         supports_check_mode=True
     )
