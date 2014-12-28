@@ -125,7 +125,7 @@ options:
       - Affinity groups names to be applied to the new virtual machine.
     required: false
     default: null
-    aliases: [ 'affinitygroup' ]
+    aliases: [ 'affinity_group' ]
   poll_async:
     description:
       - Poll async jobs until job has finised.
