@@ -30,6 +30,23 @@ Examples
     public_key: '{{ lookup('file', '~/.ssh/id_rsa.pub') }}'
 
 
+# Ensure security group default exists
+- local_action: 
+    module: cloudstack_sg
+    name: default
+
+
+# Add inbound tcp rules to security group default
+- local_action: 
+    module: cloudstack_sg_rule
+    name: default
+    start_port: '{{ item }}'
+    end_port: '{{ item }}'
+  with_items:
+  - 80
+  - 8089
+
+
 # Create a virtual machine on CloudStack
 - local_action:
     module: cloudstack_vm
