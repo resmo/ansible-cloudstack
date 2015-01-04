@@ -66,13 +66,13 @@ options:
     required: false
     default: null
     aliases: []
-  start_point
+  start_port
     description:
       - Start port for this rule. Considered if C(protocol=tcp) or C(protocol=udp).
     required: false
     default: null
     aliases: []
-  end_point
+  end_port
     description:
       - End port for this rule. Considered if C(protocol=tcp) or C(protocol=udp).
     required: false
