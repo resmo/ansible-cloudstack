@@ -17,17 +17,34 @@ Examples
 # Upload an ISO (Note: this should have CloudStack SSH PubKey handling installed):
 - local_action:
      module: cloudstack_iso:
-     name: 'Debian 7 64-bit'
-     url: 'http://iso.example.com/debian-cd/7.7.0/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso'
-     os_type: 'Debian GNU/Linux 7(64-bit)'
-     checksum: '0b31bccccb048d20b551f70830bb7ad0'
+     name: Debian 7 64-bit
+     url: http://iso.example.com/debian-cd/7.7.0/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
+     os_type: Debian GNU/Linux 7(64-bit)
+     checksum: 0b31bccccb048d20b551f70830bb7ad0
 
 
 # Upload your SSH public key
 - local_action:
     module: cloudstack_sshkey
     name: john@example.com
-    public_key: '{{ lookup('file', '~./ssh/id_rsa.pub') }}'
+    public_key: '{{ lookup('file', '~/.ssh/id_rsa.pub') }}'
+
+
+# Ensure security group default exists
+- local_action: 
+    module: cloudstack_sg
+    name: default
+
+
+# Add inbound tcp rules to security group default
+- local_action: 
+    module: cloudstack_sg_rule
+    name: default
+    start_port: '{{ item }}'
+    end_port: '{{ item }}'
+  with_items:
+  - 80
+  - 8089
 
 
 # Create a virtual machine on CloudStack
@@ -39,7 +56,7 @@ Examples
     service_offering: Tiny
     disk_offering: Performance
     disk_size: 20
-    ssh_key: 'john@example.com'
+    ssh_key: john@example.com
 
 
 # Make a snapshot
