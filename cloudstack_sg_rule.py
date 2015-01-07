@@ -145,7 +145,7 @@ EXAMPLES = '''
     protocol: '{{ item }}'
   with_items:
   - tcp
-  - upd
+  - udp
 
 
 # Allow inbound icmp from 0.0.0.0/0 added to security group 'default'
@@ -333,7 +333,7 @@ def main():
             source_type = dict(choices=['cidr', 'security_group'], default='cidr'),
             cidr = dict(default='0.0.0.0/0'),
             security_group = dict(default=None),
-            protocol = dict(choices=['tcp', 'upd', 'icmp'], default='tcp'),
+            protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
             icmp_type = dict(type='int', default=None),
             icmp_code = dict(type='int', default=None),
             start_port = dict(type='int', default=None),
