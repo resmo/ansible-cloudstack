@@ -45,7 +45,7 @@ options:
       - Protocol of the security group rule.
     required: false
     default: 'tcp'
-    choices: [ 'tcp', 'udp', 'icmp' ]
+    choices: [ 'tcp', 'udp', 'icmp', 'ah', 'esp', 'gre' ]
     aliases: []
   flow:
     description:
@@ -196,7 +196,7 @@ def add_rule(module, cs, result, security_group, project_id):
     args['icmpcode'] = module.params.get('icmp_code')
     args['securitygroupid'] = security_group['id']
 
-    if args['protocol'] != 'icmp' and not (args['startport'] or args['endport']):
+    if args['protocol'] in ['tcp', 'udp'] and not (args['startport'] or args['endport']):
         module.fail_json(msg="no start_port or end_port set for protocol '%s'" % args['protocol'])
 
     if args['protocol'] == 'icmp' and not args['icmptype']:
@@ -227,7 +227,7 @@ def add_rule(module, cs, result, security_group, project_id):
 
 
 def tcp_udp_match(rule, protocol, start_port, end_port):
-    return protocol != 'icmp' \
+    return protocol in ['tcp', 'udp'] \
            and start_port == rule['startport'] \
            and end_port == rule['endport']
 
@@ -237,6 +237,8 @@ def icmp_match(rule, protocol, icmp_code, icmp_type):
            and icmp_code == rule['icmpcode'] \
            and icmp_type == rule['icmptype']
 
+def ah_esp_gre_match(protocol):
+    return protocol in ['ah', 'esp', 'gre']
 
 def type_security_group_match(rule, source_type, security_group_name, protocol):
     return source_type == 'security_group' \
@@ -266,7 +268,8 @@ def get_rule(rules, module):
             or type_cidr_match(rule, source_type, cidr, protocol)
 
         protocol_match = tcp_udp_match(rule, protocol, start_port, end_port) \
-            or icmp_match(rule, protocol, icmp_code, icmp_type)
+            or icmp_match(rule, protocol, icmp_code, icmp_type) \
+            or ah_esp_gre_match(protocol)
 
         if type_match and protocol_match:
             return rule
@@ -333,7 +336,7 @@ def main():
             source_type = dict(choices=['cidr', 'security_group'], default='cidr'),
             cidr = dict(default='0.0.0.0/0'),
             security_group = dict(default=None),
-            protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
+            protocol = dict(choices=['tcp', 'udp', 'icmp', 'ah', 'esp', 'gre'], default='tcp'),
             icmp_type = dict(type='int', default=None),
             icmp_code = dict(type='int', default=None),
             start_port = dict(type='int', default=None),
