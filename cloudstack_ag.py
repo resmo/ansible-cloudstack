@@ -52,12 +52,6 @@ options:
     default: 'present'
     choices: [ 'present', 'absent' ]
     aliases: []
-  project:
-    description:
-      - Name of the project the affinity group to be created in.
-    required: false
-    default: null
-    aliases: []
   api_key:
     description:
       - API key of the CloudStack API.
@@ -104,10 +98,10 @@ except ImportError:
     sys.exit(1)
 
 
-def get_affinity_group(module, cs, project_id):
+def get_affinity_group(module, cs):
     ag_name = module.params.get('name')
 
-    ags = cs.listAffinityGroups(projectid=project_id)
+    ags = cs.listAffinityGroups()
     if ags:
         for a in ags['affinitygroup']:
             if a['name'] == ag_name:
@@ -115,10 +109,9 @@ def get_affinity_group(module, cs, project_id):
     return None
 
 
-def create_affinity_group(module, cs, result, affinity_group, affinity_type, project_id):
+def create_affinity_group(module, cs, result, affinity_group, affinity_type):
     if not affinity_group:
         args = {}
-        args['projectid'] = project_id
         args['name'] = module.params.get('name')
         args['type'] = affinity_type
         args['description'] = module.params.get('description')
@@ -133,10 +126,9 @@ def create_affinity_group(module, cs, result, affinity_group, affinity_type, pro
     return (result, affinity_group)
 
 
-def remove_affinity_group(module, cs, result, affinity_group, project_id):
+def remove_affinity_group(module, cs, result, affinity_group):
     if affinity_group:
         args = {}
-        args['projectid'] = project_id
         args['name'] = module.params.get('name')
 
         if not module.check_mode:
@@ -147,19 +139,6 @@ def remove_affinity_group(module, cs, result, affinity_group, project_id):
 
         result['changed'] = True
     return (result, affinity_group)
-
-
-def get_project_id(module, cs):
-    project = module.params.get('project')
-    if not project:
-        return ''
-
-    projects = cs.listProjects()
-    if projects:
-        for p in projects['project']:
-            if p['name'] == project or p['id'] == project:
-                return p['id']
-    module.fail_json(msg="project '%s' not found" % project)
 
 
 def get_affinity_type(module, cs):
@@ -184,7 +163,6 @@ def main():
             affinty_type = dict(default=None),
             description = dict(default=None),
             state = dict(choices=['present', 'absent'], default='present'),
-            project = dict(default=None),
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
@@ -210,15 +188,14 @@ def main():
         else:
             cs = CloudStack(**read_config())
 
-        project_id = get_project_id(module, cs)
-        affinity_group = get_affinity_group(module, cs, project_id)
+        affinity_group = get_affinity_group(module, cs)
         affinty_type = get_affinity_type(module, cs)
 
         if state in ['absent']:
-            (result, affinity_group) = remove_affinity_group(module, cs, result, affinity_group, project_id)
+            (result, affinity_group) = remove_affinity_group(module, cs, result, affinity_group)
 
         elif state in ['present']:
-            (result, affinity_group) = create_affinity_group(module, cs, result, affinity_group, affinty_type, project_id)
+            (result, affinity_group) = create_affinity_group(module, cs, result, affinity_group, affinty_type)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
