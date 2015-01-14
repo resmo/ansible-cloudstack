@@ -91,21 +91,23 @@ EXAMPLES = '''
 ---
 # Create a VM snapshot of disk and memory before an upgrade
 - cloudstack_vmsnapshot:
-     name: 'Snapshot before upgrade'
-     vm: 'web-01'
+     name: Snapshot before upgrade
+     vm: web-01
      snapshot_memory: yes
+
 
 # Revert a VM to a snapshot after a failed upgrade
 - cloudstack_vmsnapshot:
-     name: 'Snapshot before upgrade'
-     vm: 'web-01'
-     state: 'reverted'
+     name: Snapshot before upgrade
+     vm: web-01
+     state: reverted
+
 
 # Remove a VM snapshot after successful upgrade
 - cloudstack_vmsnapshot:
-     name: 'Snapshot before upgrade'
-     vm: 'web-01'
-     state: 'absent'
+     name: Snapshot before upgrade
+     vm: web-01
+     state: absent
 '''
 
 try:

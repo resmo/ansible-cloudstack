@@ -253,13 +253,16 @@ def icmp_match(rule, protocol, icmp_code, icmp_type):
            and icmp_code == rule['icmpcode'] \
            and icmp_type == rule['icmptype']
 
+
 def ah_esp_gre_match(protocol):
     return protocol in ['ah', 'esp', 'gre']
+
 
 def type_security_group_match(rule, security_group_name, protocol):
     return 'securitygroupname' in rule \
            and security_group_name == rule['securitygroupname'] \
            and protocol == rule['protocol']
+
 
 def type_cidr_match(rule, cidr, protocol):
     return 'cidr' in rule \

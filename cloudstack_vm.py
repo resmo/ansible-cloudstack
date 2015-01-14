@@ -161,13 +161,13 @@ EXAMPLES = '''
 - local_action:
     module: cloudstack_vm
     name: web-vm-1
-    iso: 'Linux Debian 7 64-bit'
-    hypervisior: 'VMware'
-    service_offering: '1cpu_1gb'
-    disk_offering: 'PerfPlus Storage'
+    iso: Linux Debian 7 64-bit
+    hypervisior: VMware
+    service_offering: 1cpu_1gb
+    disk_offering: PerfPlus Storage
     disk_size: '20'
-    api_key: '...'
-    api_secret: '...'
+    api_key: ...
+    api_secret: ...
     api_url: https://cloud.example.com/client/api
 
 
@@ -175,11 +175,11 @@ EXAMPLES = '''
 - local_action:
     module: cloudstack_vm
     name: web-vm-1
-    template='Linux Debian 7 64-bit'
-    service_offering: 'Tiny'
-    ssh_key='john@example.com'
-    api_key='...'
-    api_secret='...'
+    template: Linux Debian 7 64-bit
+    service_offering: Tiny
+    ssh_key: john@example.com
+    api_key: ...
+    api_secret: ...
     api_url: https://api.exoscale.ch/compute
   register: vm
 

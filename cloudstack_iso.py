@@ -136,28 +136,31 @@ EXAMPLES = '''
 ---
 # Register an ISO if ISO name does not already exist.
 - cloudstack_iso:
-     name: 'Debian 7 64-bit'
-     url: 'http://mirror.switch.ch/ftp/mirror/debian-cd/7.7.0/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso'
-     os_type: 'Debian GNU/Linux 7(64-bit)'
+     name: Debian 7 64-bit
+     url: http://mirror.switch.ch/ftp/mirror/debian-cd/current/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
+     os_type: Debian GNU/Linux 7(64-bit)
+
 
 # Register an ISO with given name if ISO md5 checksum does not already exist.
 - cloudstack_iso:
-     name: 'Debian 7 64-bit'
-     url: 'http://mirror.switch.ch/ftp/mirror/debian-cd/7.7.0/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso'
-     os_type: 'Debian GNU/Linux 7(64-bit)'
-     checksum: '0b31bccccb048d20b551f70830bb7ad0'
+     name: Debian 7 64-bit
+     url: http://mirror.switch.ch/ftp/mirror/debian-cd/current/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
+     os_type: Debian GNU/Linux 7(64-bit)
+     checksum: 0b31bccccb048d20b551f70830bb7ad0
+
 
 # Remove an ISO by name
 # Register an ISO with given name if ISO md5 checksum does not already exist.
 - cloudstack_iso:
-     name: 'Debian 7 64-bit'
-     state: 'absent'
+     name: Debian 7 64-bit
+     state: absent
+
 
 # Remove an ISO by checksum
 - cloudstack_iso:
-     name: 'Debian 7 64-bit'
-     checksum: '0b31bccccb048d20b551f70830bb7ad0'
-     state: 'absent'
+     name: Debian 7 64-bit
+     checksum: 0b31bccccb048d20b551f70830bb7ad0
+     state: absent
 '''
 
 try:

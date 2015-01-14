@@ -78,18 +78,18 @@ requirements: [ 'cs' ]
 EXAMPLES = '''
 ---
 # create a new private / public key:
-- cloudstack_sshkey: name='linus@example.com'
+- cloudstack_sshkey: name=linus@example.com
   register: key
 
-- debug: msg="private key is key.private_key"
+- debug: msg='private key is {{ key.private_key }}'
 
 
 # remove a public key:
-- cloudstack_sshkey: name='linus@example.com' state=absent
+- cloudstack_sshkey: name=linus@example.com state=absent
 
 
 # register a your local public key:
-- cloudstack_sshkey: name='linus@example.com' public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
+- cloudstack_sshkey: name=linus@example.com public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
 '''
 
 try:
