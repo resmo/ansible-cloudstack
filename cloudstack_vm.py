@@ -419,13 +419,13 @@ def scale_vm(module, cs, result, vm):
 def remove_vm(module, cs, result, vm):
     if vm:
         if not module.check_mode:
-            vm = cs.destroyVirtualMachine(id=vm['id'])
+            res = cs.destroyVirtualMachine(id=vm['id'])
             if 'errortext' in res:
                 module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
             poll_async = module.params.get('poll_async')
             if poll_async:
-                vm = poll_job(cs, vm, 'virtualmachine')
+                vm = poll_job(cs, res, 'virtualmachine')
 
         result['changed'] = True
     return (result, vm)
