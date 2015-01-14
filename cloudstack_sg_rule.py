@@ -244,30 +244,31 @@ def add_rule(module, cs, result, security_group, project_id):
 
 def tcp_udp_match(rule, protocol, start_port, end_port):
     return protocol in ['tcp', 'udp'] \
+           and protocol == rule['protocol'] \
            and start_port == rule['startport'] \
            and end_port == rule['endport']
 
 
 def icmp_match(rule, protocol, icmp_code, icmp_type):
     return protocol == 'icmp' \
+           and protocol == rule['protocol'] \
            and icmp_code == rule['icmpcode'] \
            and icmp_type == rule['icmptype']
 
 
-def ah_esp_gre_match(protocol):
-    return protocol in ['ah', 'esp', 'gre']
+def ah_esp_gre_match(rule, protocol):
+    return protocol in ['ah', 'esp', 'gre'] \
+           and protocol == rule['protocol']
 
 
 def type_security_group_match(rule, security_group_name, protocol):
     return 'securitygroupname' in rule \
-           and security_group_name == rule['securitygroupname'] \
-           and protocol == rule['protocol']
+           and security_group_name == rule['securitygroupname']
 
 
 def type_cidr_match(rule, cidr, protocol):
     return 'cidr' in rule \
-           and cidr == rule['cidr'] \
-           and protocol == rule['protocol']
+           and cidr == rule['cidr']
 
 
 def get_rule(rules, module):
@@ -285,7 +286,7 @@ def get_rule(rules, module):
 
         protocol_match = tcp_udp_match(rule, protocol, start_port, end_port) \
             or icmp_match(rule, protocol, icmp_code, icmp_type) \
-            or ah_esp_gre_match(protocol)
+            or ah_esp_gre_match(rule, protocol)
 
         if type_match and protocol_match:
             return rule
