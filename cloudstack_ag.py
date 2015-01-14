@@ -132,7 +132,7 @@ def remove_affinity_group(module, cs, result, affinity_group):
         args['name'] = module.params.get('name')
 
         if not module.check_mode:
-            affinity_group_group = cs.deleteAffinityGroup(**args)
+            affinity_group = cs.deleteAffinityGroup(**args)
 
             if 'errortext' in affinity_group:
                 module.fail_json(msg="Failed: '%s'" % affinity_group['errortext'])
