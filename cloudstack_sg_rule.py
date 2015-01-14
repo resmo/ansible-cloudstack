@@ -219,6 +219,9 @@ def add_rule(module, cs, result, security_group, project_id):
             if not module.check_mode:
                 job = cs.authorizeSecurityGroupEgress(**args)
 
+    if job and 'errortext' in job:
+        module.fail_json(msg="Failed: '%s'" % job['errortext'])
+
     poll_async = module.params.get('poll_async')
     if job and poll_async:
         security_group = poll_job(cs, job, 'securitygroup')
@@ -295,6 +298,9 @@ def remove_rule(module, cs, result, security_group):
             result['changed'] = True
             if not module.check_mode:
                 job = cs.revokeSecurityGroupEgress(id=rule['ruleid'])
+
+    if job and 'errortext' in job:
+        module.fail_json(msg="Failed: '%s'" % job['errortext'])
 
     poll_async = module.params.get('poll_async')
     if job and poll_async:
