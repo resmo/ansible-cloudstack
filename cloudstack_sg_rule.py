@@ -56,13 +56,13 @@ options:
     aliases: []
   cidr:
     description:
-      - CIDR (full notation) to be used for security group rule. Required and considered if C(source_type=cidr).
+      - CIDR (full notation) to be used for security group rule.
     required: false
     default: '0.0.0.0\0'
     aliases: []
-  security_group
+  user_security_group
     description:
-      - Security group name this rule is based of. Required and considered if C(source_type=security_group).
+      - Security group this rule is based of.
     required: false
     default: null
     aliases: []
@@ -164,6 +164,15 @@ EXAMPLES = '''
     start_port=80
     end_port=80
     state: absent
+
+
+# Allow inbound port 80/tcp from security group web added to security group 'default'
+- local_action:
+    module: cloudstack_sg_rule
+    name: default
+    start_port: 80
+    end_port: 80
+    user_security_group=web
 '''
 
 try:
@@ -174,22 +183,26 @@ except ImportError:
     sys.exit(1)
 
 
-def get_security_group(module, cs, project_id):
-    name = module.params.get('name')
-
-    sgs = cs.listSecurityGroups(projectid=project_id)
-    if sgs:
-        for s in sgs['securitygroup']:
-            if s['name'] == name:
-                return s
-    module.fail_json(msg="security group '%s' not found" % name)
+def get_security_group(module, cs, security_group_name, project_id):
+    sg = cs.listSecurityGroups(projectid=project_id, securitygroupname=security_group_name)
+    if not sg:
+        module.fail_json(msg="security group '%s' not found" % security_group_name)
+    return sg['securitygroup'][0]
 
 
 def add_rule(module, cs, result, security_group, project_id):
     args = {}
     args['protocol'] = module.params.get('protocol')
-    args['cidrlist'] = module.params.get('cidr')
-    args['securitygroupname'] = module.params.get('security_group')
+    user_security_group_name = module.params.get('user_security_group')
+    if user_security_group_name:
+        args['usersecuritygrouplist'] = []
+        user_security_group = get_security_group(module, cs, user_security_group_name, project_id)
+        args['usersecuritygrouplist'].append({
+            'group': user_security_group['name'],
+            'account': user_security_group['account'],
+        })
+    else:
+        args['cidrlist'] = module.params.get('cidr')
     args['startport'] = module.params.get('start_port')
     args['endport'] = module.params.get('end_port')
     args['icmptype'] = module.params.get('icmp_type')
@@ -243,23 +256,20 @@ def icmp_match(rule, protocol, icmp_code, icmp_type):
 def ah_esp_gre_match(protocol):
     return protocol in ['ah', 'esp', 'gre']
 
-def type_security_group_match(rule, source_type, security_group_name, protocol):
-    return source_type == 'security_group' \
-           and 'securitygroupname' in rule \
+def type_security_group_match(rule, security_group_name, protocol):
+    return 'securitygroupname' in rule \
            and security_group_name == rule['securitygroupname'] \
            and protocol == rule['protocol']
 
-def type_cidr_match(rule, source_type, cidr, protocol):
-    return source_type == 'cidr' \
-           and 'cidr' in rule \
+def type_cidr_match(rule, cidr, protocol):
+    return 'cidr' in rule \
            and cidr == rule['cidr'] \
            and protocol == rule['protocol']
 
 
 def get_rule(rules, module):
-    source_type = module.params.get('source_type')
+    user_security_group_name = module.params.get('user_security_group')
     cidr = module.params.get('cidr')
-    security_group_name = module.params.get('security_group')
     protocol = module.params.get('protocol')
     start_port = module.params.get('start_port')
     end_port = module.params.get('end_port')
@@ -267,8 +277,8 @@ def get_rule(rules, module):
     icmp_type = module.params.get('icmp_type')
 
     for rule in rules:
-        type_match = type_security_group_match(rule, source_type, security_group_name, protocol) \
-            or type_cidr_match(rule, source_type, cidr, protocol)
+        type_match = (user_security_group_name and type_security_group_match(rule, user_security_group_name, protocol)) \
+            or (not user_security_group_name and type_cidr_match(rule, cidr, protocol))
 
         protocol_match = tcp_udp_match(rule, protocol, start_port, end_port) \
             or icmp_match(rule, protocol, icmp_code, icmp_type) \
@@ -339,9 +349,8 @@ def main():
         argument_spec = dict(
             name = dict(required=True, default=None),
             flow = dict(choices=['inbound', 'outbound'], default='inbound'),
-            source_type = dict(choices=['cidr', 'security_group'], default='cidr'),
             cidr = dict(default='0.0.0.0/0'),
-            security_group = dict(default=None),
+            user_security_group = dict(default=None),
             protocol = dict(choices=['tcp', 'udp', 'icmp', 'ah', 'esp', 'gre'], default='tcp'),
             icmp_type = dict(type='int', default=None),
             icmp_code = dict(type='int', default=None),
@@ -383,7 +392,8 @@ def main():
             cs = CloudStack(**read_config())
 
         project_id = get_project_id(module, cs)
-        security_group = get_security_group(module, cs, project_id)
+        security_group_name = module.params.get('name')
+        security_group = get_security_group(module, cs, security_group_name, project_id)
 
         if state in ['absent']:
             (result, security_group) = remove_rule(module, cs, result, security_group)
