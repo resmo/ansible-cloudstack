@@ -161,8 +161,8 @@ EXAMPLES = '''
 - local_action:
     module: cloudstack_sg_rule
     name: default
-    start_port=80
-    end_port=80
+    start_port: 80
+    end_port: 80
     state: absent
 
 
@@ -172,7 +172,7 @@ EXAMPLES = '''
     name: default
     start_port: 80
     end_port: 80
-    user_security_group=web
+    user_security_group: web
 '''
 
 try:
