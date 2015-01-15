@@ -126,6 +126,12 @@ options:
     required: false
     default: null
     aliases: [ 'affinity_group' ]
+  user_data:
+    description:
+      - Optional data (ASCII) that can be sent to the virtual machine upon a successful deployment. The data will be automatically base64 encoded, consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET of to 2KB to 32 KB.
+    required: false
+    default: null
+    aliases: []
   poll_async:
     description:
       - Poll async jobs until job has finised.
@@ -507,6 +513,7 @@ def main():
             security_groups = dict(type='list', aliases= [ 'security_group' ], default=None),
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
+            user_data = dict(default=None),
             zone = dict(default=None),
             poll_async = dict(choices=BOOLEANS, default=True),
             ssh_key = dict(default=None),
