@@ -24,7 +24,7 @@ module: cloudstack_vm
 short_description: Create, start, scale, restart, stop and destroy virtual machines on Apache CloudStack based clouds.
 description:
     - Manage virtual machines on Apache CloudStack, Citrix CloudPlatform and Exoscale. Existing virtual machines will be scaled if service offering is different by stopping and starting the virtual machine.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), see https://github.com/exoscale/cs on which this module depends on.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), C(api_http_method), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:

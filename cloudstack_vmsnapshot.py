@@ -24,7 +24,7 @@ module: cloudstack_vmsnapshot
 short_description: Create, revert to and delete VM snapshots on Apache CloudStack based clouds.
 description:
     - Manage VM snapshots on Apache CloudStack, Citrix CloudPlatform and Exoscale.
-    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), see https://github.com/exoscale/cs on which this module depends on.
+    - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), C(api_http_method), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:
@@ -82,6 +82,12 @@ options:
       - URL of the CloudStack API e.g. https://cloud.example.com/client/api.
     required: false
     default: null
+    aliases: []
+  api_http_method:
+    description:
+      - HTTP method used.
+    required: false
+    default: 'get'
     aliases: []
 author: René Moser
 requirements: [ 'cs' ]
@@ -217,6 +223,7 @@ def main():
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
+            api_http_method = dict(default='get'),
         ),
         supports_check_mode=True
     )
@@ -229,12 +236,14 @@ def main():
         api_key = module.params.get('api_key')
         api_secret = module.params.get('secret_key')
         api_url = module.params.get('api_url')
+        api_http_method = module.params.get('api_http_method')
 
         if api_key and api_secret and api_url:
             cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
-                secret=api_secret
+                secret=api_secret,
+                method=api_http_method
                 )
         else:
             cs = CloudStack(**read_config())
