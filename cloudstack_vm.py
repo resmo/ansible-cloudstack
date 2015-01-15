@@ -128,7 +128,7 @@ options:
     aliases: [ 'affinity_group' ]
   user_data:
     description:
-      - Optional data (ASCII) that can be sent to the virtual machine upon a successful deployment. The data will be automatically base64 encoded, consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET of to 2KB to 32 KB.
+      - Optional data (ASCII) that can be sent to the virtual machine upon a successful deployment. The data will be automatically base64 encoded, consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET size limit of 2KB to 32 KB.
     required: false
     default: null
     aliases: []
