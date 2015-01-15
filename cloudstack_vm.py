@@ -156,6 +156,12 @@ options:
     required: false
     default: null
     aliases: []
+  api_http_method:
+    description:
+      - HTTP method used.
+    required: false
+    default: 'get'
+    aliases: []
 author: René Moser
 requirements: [ 'python library C(cs)' ]
 '''
@@ -520,6 +526,7 @@ def main():
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
+            api_http_method = dict(default='get'),
         ),
         required_one_of = (
             ['name', 'display_name'],
@@ -535,12 +542,14 @@ def main():
         api_key = module.params.get('api_key')
         api_secret = module.params.get('secret_key')
         api_url = module.params.get('api_url')
+        api_http_method = module.params.get('api_http_method')
 
         if api_key and api_secret and api_url:
             cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
-                secret=api_secret
+                secret=api_secret,
+                method=api_http_method
                 )
         else:
             cs = CloudStack(**read_config())
