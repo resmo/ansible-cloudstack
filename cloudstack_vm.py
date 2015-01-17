@@ -377,8 +377,7 @@ def create_vm(module, cs, result, vm, project_id):
 
         user_data = module.params.get('user_data')
         if user_data:
-            user_data = base64.b64encode(b(user_data).decode('ascii'))
-            args['userdata'] = user_data
+            args['userdata'] = base64.b64encode(user_data)
 
         display_name = module.params.get('display_name')
         if not display_name:
