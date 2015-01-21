@@ -19,7 +19,7 @@
 # along with Ansible. If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
-module: cloudstack_sg_rules
+module: cloudstack_sg_rule
 short_description: Create and remove security group rules on Apache CloudStack based clouds.
 description:
     - Manage security group rules on Apache CloudStack, Citrix CloudPlatform and Exoscale
