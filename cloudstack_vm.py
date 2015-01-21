@@ -247,7 +247,7 @@ def get_template_or_iso_id(module, cs):
         templates = cs.listTemplates(templatefilter='executable')
         if templates:
             for t in templates['template']:
-                if t['name'] == template or t['id'] == template:
+                if t['displaytext'] == template or t['name'] == template or t['id'] == template:
                     return t['id']
         module.fail_json(msg="template '%s' not found" % template)
 
@@ -255,7 +255,7 @@ def get_template_or_iso_id(module, cs):
         isos = cs.listIsos()
         if isos:
             for i in isos['iso']:
-                if i['name'] == iso or i['id'] == iso:
+                if i['displaytext'] == iso or i['name'] == iso or i['id'] == iso:
                     return i['id']
         module.fail_json(msg="iso '%s' not found" % iso)
 
