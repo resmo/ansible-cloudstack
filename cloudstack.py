@@ -176,12 +176,13 @@ class CloudStackInventory(object):
             }
 
         groups = self.cs.listInstanceGroups(projectid=project_id)
-        for group in groups['instancegroup']:
-            group_name = group['name']
-            if group_name and not group_name in data:
-                data[group_name] = {
-                        'hosts': []
-                    }
+        if groups:
+            for group in groups['instancegroup']:
+                group_name = group['name']
+                if group_name and not group_name in data:
+                    data[group_name] = {
+                            'hosts': []
+                        }
 
         hosts = self.cs.listVirtualMachines(projectid=project_id)
         if hosts:
