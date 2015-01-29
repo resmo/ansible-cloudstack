@@ -61,7 +61,7 @@ based on the data obtained from CloudStack API:
     "state": "Running",
     "tags": [],
     "cpu_speed": 1800,
-    "affinity_ygroup": [],
+    "affinity_group": [],
     "service_offering": "Small",
     "cpu_used": "62%"
   }
