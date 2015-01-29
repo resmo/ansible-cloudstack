@@ -215,7 +215,7 @@ def add_rule(module, cs, result, security_group, project_id):
     args['icmpcode'] = module.params.get('icmp_code')
     args['securitygroupid'] = security_group['id']
 
-    if args['protocol'] in ['tcp', 'udp'] and not (args['startport'] or args['endport']):
+    if args['protocol'] in ['tcp', 'udp'] and not (args['startport'] and args['endport']):
         module.fail_json(msg="no start_port or end_port set for protocol '%s'" % args['protocol'])
 
     if args['protocol'] == 'icmp' and not args['icmptype']:
