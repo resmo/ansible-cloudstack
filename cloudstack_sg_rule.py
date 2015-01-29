@@ -215,12 +215,6 @@ def add_rule(module, cs, result, security_group, project_id):
     args['icmpcode'] = module.params.get('icmp_code')
     args['securitygroupid'] = security_group['id']
 
-    if args['protocol'] in ['tcp', 'udp'] and not (args['startport'] and args['endport']):
-        module.fail_json(msg="no start_port or end_port set for protocol '%s'" % args['protocol'])
-
-    if args['protocol'] == 'icmp' and not args['icmptype']:
-        module.fail_json(msg="no icmp_type set")
-
     rule = None
     job = None
     flow = module.params.get('flow')
@@ -285,6 +279,12 @@ def get_rule(rules, module):
     end_port = module.params.get('end_port')
     icmp_code = module.params.get('icmp_code')
     icmp_type = module.params.get('icmp_type')
+
+    if protocol in ['tcp', 'udp'] and not (start_port and end_port):
+        module.fail_json(msg="no start_port or end_port set for protocol '%s'" % protocol)
+
+    if protocol == 'icmp' and not icmp_type:
+        module.fail_json(msg="no icmp_type set")
 
     for rule in rules:
         type_match = (user_security_group_name and type_security_group_match(rule, user_security_group_name, protocol)) \
