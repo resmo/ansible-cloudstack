@@ -162,10 +162,27 @@ class CloudStackInventory(object):
                 continue
             router_name = router['name']
             data['all']['hosts'].append(router_name)
+            # Make a group per domain
+            group_name = router['domain']
+            if group_name not in data:
+                data[group_name] = {
+                    'hosts': []
+                }
+            data[group_name]['hosts'].append(router_name)
             data['_meta']['hostvars'][router_name] = {}
             data['_meta']['hostvars'][router_name]['zone'] = router['zonename']
+
             if 'project' in router:
                 data['_meta']['hostvars'][router_name]['project'] = router['project']
+
+                # Make a group per project
+                group_name = router['project']
+                if group_name not in data:
+                    data[group_name] = {
+                        'hosts': []
+                    }
+                data[group_name]['hosts'].append(router_name)
+
             data['_meta']['hostvars'][router_name]['ansible_ssh_host'] = router['linklocalip']
             data['_meta']['hostvars'][router_name]['state'] = router['state']
             data['_meta']['hostvars'][router_name]['service_offering'] = router['serviceofferingname']
