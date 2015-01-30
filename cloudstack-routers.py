@@ -95,16 +95,16 @@ class CloudStackInventory(object):
         except CloudStackException, e:
             print >> sys.stderr, "Error: Could not connect to CloudStack API"
 
-        project_id = '-1'
+        project_id = -1
         if options.project:
             project_id = self.get_project_id(options.project)
 
         if options.host:
-            data = self.get_host(options.host)
+            data = self.get_host(options.host, project_id)
             print json.dumps(data, indent=2)
 
         elif options.list:
-            data = self.get_list()
+            data = self.get_list(project_id)
             print json.dumps(data, indent=2)
         else:
             print >> sys.stderr, "usage: --list | --host <hostname> [--project <project>]"
@@ -121,7 +121,7 @@ class CloudStackInventory(object):
         sys.exit(1)
 
 
-    def get_host(self, name, project_id=''):
+    def get_host(self, name, project_id):
         routers = self.cs.listRouters(projectid=project_id, listall=True)
         data = {}
         for router in routers['router']:
@@ -146,7 +146,7 @@ class CloudStackInventory(object):
         return data
 
 
-    def get_list(self, project_id=''):
+    def get_list(self, project_id):
         data = {
             'all': {
                 'hosts': [],
