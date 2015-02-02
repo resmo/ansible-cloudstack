@@ -122,9 +122,18 @@ class CloudStackInventory(object):
 
 
     def get_host(self, name, project_id):
-        routers = self.cs.listRouters(projectid=project_id, listall=True)
+        routers = []
+
+        routers_projects = self.cs.listRouters(projectid=project_id, listall=True)
+        if routers_projects and 'router' in routers_projects:
+            routers = routers + routers_projects['router']
+
+        routers_accounts = self.cs.listRouters(listall=True)
+        if routers_accounts and 'router' in routers_accounts:
+            routers = routers + routers_accounts['router']
+
         data = {}
-        for router in routers['router']:
+        for router in routers:
             router_name = router['name']
             if name == router_name:
                 data['zone'] = router['zonename']
@@ -156,8 +165,17 @@ class CloudStackInventory(object):
                 },
             }
 
-        routers = self.cs.listRouters(projectid=project_id, listall=True)
-        for router in routers['router']:
+        routers = []
+
+        routers_projects = self.cs.listRouters(projectid=project_id, listall=True)
+        if routers_projects and 'router' in routers_projects:
+            routers = routers + routers_projects['router']
+
+        routers_accounts = self.cs.listRouters(listall=True)
+        if routers_accounts and 'router' in routers_accounts:
+            routers = routers + routers_accounts['router']
+
+        for router in routers:
             if router['state'] != 'Running':
                 continue
             router_name = router['name']
