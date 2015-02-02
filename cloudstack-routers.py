@@ -174,7 +174,15 @@ class CloudStackInventory(object):
             data['_meta']['hostvars'][router_name]['domain'] = router['domain']
             if 'networkdomain' in router:
                 data['_meta']['hostvars'][router_name]['networkdomain'] = router['networkdomain']
+
             data['_meta']['hostvars'][router_name]['zone'] = router['zonename']
+            # Make a group per zone
+            group_name = router['zonename']
+            if group_name not in data:
+                data[group_name] = {
+                    'hosts': []
+                }
+            data[group_name]['hosts'].append(router_name)
 
             if 'project' in router:
                 data['_meta']['hostvars'][router_name]['project'] = router['project']
