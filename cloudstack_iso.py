@@ -156,7 +156,6 @@ EXAMPLES = '''
 
 
 # Remove an ISO by name
-# Register an ISO with given name if ISO md5 checksum does not already exist.
 - cloudstack_iso:
      name: Debian 7 64-bit
      state: absent

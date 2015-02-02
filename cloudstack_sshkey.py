@@ -95,7 +95,7 @@ EXAMPLES = '''
 
 
 # register a your local public key:
-- cloudstack_sshkey: name=linus@example.com public_key='{{ lookup('file', '~./ssh/id_rsa.pub') }}'
+- cloudstack_sshkey: name=linus@example.com public_key='{{ lookup('file', '~/.ssh/id_rsa.pub') }}'
 '''
 
 try:
