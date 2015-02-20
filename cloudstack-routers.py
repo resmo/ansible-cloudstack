@@ -213,6 +213,17 @@ class CloudStackInventory(object):
                     }
                 data[group_name]['hosts'].append(router_name)
 
+            if 'account' in router:
+                data['_meta']['hostvars'][router_name]['account'] = router['account']
+
+                # Make a group per account
+                group_name = router['account']
+                if group_name not in data:
+                    data[group_name] = {
+                        'hosts': []
+                    }
+                data[group_name]['hosts'].append(router_name)
+
             data['_meta']['hostvars'][router_name]['ansible_ssh_host'] = router['linklocalip']
             data['_meta']['hostvars'][router_name]['state'] = router['state']
             data['_meta']['hostvars'][router_name]['service_offering'] = router['serviceofferingname']
