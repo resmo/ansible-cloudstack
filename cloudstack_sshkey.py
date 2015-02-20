@@ -114,7 +114,7 @@ def get_project_id(module, cs):
     projects = cs.listProjects()
     if projects:
         for p in projects['project']:
-            if p['name'] == project or p['id'] == project:
+            if p['name'] == project or p['displaytext'] == project or p['id'] == project:
                 return p['id']
     module.fail_json(msg="project '%s' not found" % project)
 
