@@ -140,6 +140,10 @@ class CloudStackInventory(object):
                 if 'linklocalip' in router:
                     data['ansible_ssh_host'] = router['linklocalip']
                 data['state'] = router['state']
+                if 'account' in router:
+                    data['account'] = router['account']
+                if 'project' in router:
+                    data['project'] = router['project']
                 data['service_offering'] = router['serviceofferingname']
                 data['role'] = router['role']
                 data['nic'] = []
