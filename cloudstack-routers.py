@@ -120,6 +120,13 @@ class CloudStackInventory(object):
         print >> sys.stderr, "Error: Project %s not found." % project
         sys.exit(1)
 
+    def add_group(self, data, group_name, router_name):
+        if group_name not in data:
+            data[group_name] = {
+                'hosts': []
+            }
+        data[group_name]['hosts'].append(router_name)
+        return data
 
     def get_host(self, name, project_id):
         routers = []
@@ -185,12 +192,8 @@ class CloudStackInventory(object):
             router_name = router['name']
             data['all']['hosts'].append(router_name)
             # Make a group per domain
-            group_name = router['domain']
-            if group_name not in data:
-                data[group_name] = {
-                    'hosts': []
-                }
-            data[group_name]['hosts'].append(router_name)
+            data = self.add_group(data, router['domain'], router_name)
+
             data['_meta']['hostvars'][router_name] = {}
             data['_meta']['hostvars'][router_name]['group'] = router['domain']
             data['_meta']['hostvars'][router_name]['domain'] = router['domain']
@@ -199,34 +202,19 @@ class CloudStackInventory(object):
 
             data['_meta']['hostvars'][router_name]['zone'] = router['zonename']
             # Make a group per zone
-            group_name = router['zonename']
-            if group_name not in data:
-                data[group_name] = {
-                    'hosts': []
-                }
-            data[group_name]['hosts'].append(router_name)
+            data = self.add_group(data, router['zonename'], router_name)
 
             if 'project' in router:
                 data['_meta']['hostvars'][router_name]['project'] = router['project']
 
                 # Make a group per project
-                group_name = router['project']
-                if group_name not in data:
-                    data[group_name] = {
-                        'hosts': []
-                    }
-                data[group_name]['hosts'].append(router_name)
+                data = self.add_group(data, router['project'], router_name)
 
             if 'account' in router:
                 data['_meta']['hostvars'][router_name]['account'] = router['account']
 
                 # Make a group per account
-                group_name = router['account']
-                if group_name not in data:
-                    data[group_name] = {
-                        'hosts': []
-                    }
-                data[group_name]['hosts'].append(router_name)
+                data = self.add_group(data, router['account'], router_name)
 
             data['_meta']['hostvars'][router_name]['ansible_ssh_host'] = router['linklocalip']
             data['_meta']['hostvars'][router_name]['state'] = router['state']
