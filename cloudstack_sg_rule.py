@@ -245,8 +245,8 @@ def add_rule(module, cs, result, security_group, project_id):
 def tcp_udp_match(rule, protocol, start_port, end_port):
     return protocol in ['tcp', 'udp'] \
            and protocol == rule['protocol'] \
-           and start_port == rule['startport'] \
-           and end_port == rule['endport']
+           and start_port == int(rule['startport']) \
+           and end_port == int(rule['endport'])
 
 
 def icmp_match(rule, protocol, icmp_code, icmp_type):
