@@ -52,7 +52,7 @@ Examples
     module: cloudstack_vm
     name: web-vm-1
     iso: Linux Debian 7 64-bit
-    hypervisior: VMware
+    hypervisor: VMware
     service_offering: Tiny
     disk_offering: Performance
     disk_size: 20
