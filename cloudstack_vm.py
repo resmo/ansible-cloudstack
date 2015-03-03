@@ -71,9 +71,9 @@ options:
     required: false
     default: null
     aliases: []
-  hypervisior:
+  hypervisor:
     description:
-      - Name the hypervisior to be used for creating the new virtual machine. Relevant when using C(state=created) and option C(ISO) is used. If not set, first found Hypervisor will be used.
+      - Name the hypervisor to be used for creating the new virtual machine. Relevant when using C(state=created) and option C(ISO) is used. If not set, first found hypervisor will be used.
     required: false
     default: null
     choices: [ 'KVM', 'VMware', 'BareMetal', 'XenServer', 'LXC', 'HyperV', 'UCS', 'OVM' ]
@@ -174,7 +174,7 @@ EXAMPLES = '''
     module: cloudstack_vm
     name: web-vm-1
     iso: Linux Debian 7 64-bit
-    hypervisior: VMware
+    hypervisor: VMware
     service_offering: 1cpu_1gb
     disk_offering: PerfPlus Storage
     disk_size: '20'
@@ -514,7 +514,7 @@ def main():
             networks = dict(type='list', default=None),
             disk_offering = dict(default=None),
             disk_size = dict(default=None),
-            hypervisior = dict(default=None),
+            hypervisor = dict(default=None),
             security_groups = dict(type='list', aliases= [ 'security_group' ], default=None),
             affinity_groups = dict(type='list', aliases= [ 'affinity_group' ], default=None),
             project = dict(default=None),
