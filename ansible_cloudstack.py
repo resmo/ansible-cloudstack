@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import sys
+
 try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:
