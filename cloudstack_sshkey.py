@@ -98,6 +98,8 @@ EXAMPLES = '''
 - cloudstack_sshkey: name=linus@example.com public_key='{{ lookup('file', '~/.ssh/id_rsa.pub') }}'
 '''
 
+import sys
+
 try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:

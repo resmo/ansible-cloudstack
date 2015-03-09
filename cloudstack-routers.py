@@ -65,7 +65,8 @@ based on the data obtained from CloudStack API:
 usage: cloudstack-routers.py [--list] [--host HOST] [--project PROJECT]
 """
 
-import os, sys
+import os
+import sys
 import argparse
 
 try:

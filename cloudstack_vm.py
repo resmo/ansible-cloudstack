@@ -210,6 +210,7 @@ EXAMPLES = '''
 - local_action: cloudstack_vm name=web-vm-1 state=absent
 '''
 
+import sys
 import base64
 
 try:
