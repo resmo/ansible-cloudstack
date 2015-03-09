@@ -14,6 +14,12 @@ class AnsibleCloudStack:
         self.module = module
         self._connect()
 
+        self.project_id = None
+        self.ip_address_id = None
+        self.zone_id = None
+        self.vm_id = None
+        self.os_type_id = None
+
 
     def _connect(self):
         api_key = self.module.params.get('api_key')
