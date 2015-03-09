@@ -176,113 +176,215 @@ except ImportError:
     sys.exit(1)
 
 
-def get_project_id(module, cs):
-    project = module.params.get('project')
-    if not project:
-        return None
+class AnsibleCloudStack:
 
-    projects = cs.listProjects()
-    if projects:
-        for p in projects['project']:
-            if p['name'] == project or p['displaytext'] == project or p['id'] == project:
-                return p['id']
-    module.fail_json(msg="project '%s' not found" % project)
+    def __init__(self, module):
+        self.module = module
+        self._connect()
 
-
-def get_zone_id(module, cs):
-    zone = module.params.get('zone')
-    zones = cs.listZones()
-
-    if not zone:
-        return zones['zone'][0]['id']
-
-    if zones:
-        for z in zones['zone']:
-            if z['name'] == zone or z['id'] == zone:
-                return z['id']
-    module.fail_json(msg="zone '%s' not found" % zone)
+        self.project_id = None
+        self.ip_address_id = None
+        self.zone_id = None
+        self.vm_id = None
+        self.os_type_id = None
 
 
-def get_os_type_id(module, cs):
-    os_type = module.params.get('os_type')
-    if not os_type:
-        return None
 
-    os_types = cs.listOsTypes()
-    if os_types:
-        for o in os_types['ostype']:
-            if o['description'] == os_type or o['id'] == os_type:
-                return o['id']
-    module.fail_json(msg="OS type '%s' not found" % os_type)
+    def _connect(self):
+        api_key = self.module.params.get('api_key')
+        api_secret = self.module.params.get('secret_key')
+        api_url = self.module.params.get('api_url')
+        api_http_method = self.module.params.get('api_http_method')
 
-
-def register_iso(module, cs, result, iso, zone_id, project_id):
-    if not iso:
-        args = {}
-        if project_id:
-           args['projectid'] = project_id
-
-        if not zone_id:
-            module.fail_json(msg="Zone is requried.")
-        args['zoneid'] = zone_id
-
-        args['bootable'] = module.params.get('bootable')
-        args['ostypeid'] = get_os_type_id(module, cs)
-        if args['bootable'] and not args['ostypeid']:
-            module.fail_json(msg="OS type is requried if bootable is true.")
-
-        args['url'] = module.params.get('url')
-        if not args['url']:
-            module.fail_json(msg="URL is requried.")
-
-        args['name'] = module.params.get('name')
-        args['displaytext'] = module.params.get('name')
-        args['checksum'] = module.params.get('checksum')
-        args['isdynamicallyscalable'] = module.params.get('is_dynamically_scalable')
-        args['isfeatured'] = module.params.get('is_featured')
-        args['ispublic'] = module.params.get('is_public')
-
-        result['changed'] = True
-        if not module.check_mode:
-            iso = cs.registerIso(**args)
-    return (result, iso)
-
-
-def get_iso(module, cs, zone_id, project_id):
-    args = {}
-    args['isready'] = module.params.get('is_ready')
-    args['isofilter'] = module.params.get('iso_filter')
-    if project_id:
-        args['projectid'] = project_id
-    if zone_id:
-        args['zoneid'] = zone_id
-
-    # if checksum is set, we only look on that.
-    checksum = module.params.get('checksum')
-    if not checksum:
-        args['name'] = module.params.get('name')
-
-    isos = cs.listIsos(**args)
-    if isos:
-        # if checksum is set, we only look on that.
-        if not checksum:
-            return isos['iso'][0]
+        if api_key and api_secret and api_url:
+            self.cs = CloudStack(
+                endpoint=api_url,
+                key=api_key,
+                secret=api_secret,
+                method=api_http_method
+                )
         else:
-            for i in isos['iso']:
-                if i['checksum'] == checksum:
-                    return i
-    return None
+            self.cs = CloudStack(**read_config())
 
 
-def remove_iso(module, cs, result, iso, zone_id):
-    if iso:
-        result['changed'] = True
+    def get_project_id(self):
+        if self.project_id:
+            return self.project_id
+
+        project = self.module.params.get('project')
+        if not project:
+            return None
+
+        projects = self.cs.listProjects()
+        if projects:
+            for p in projects['project']:
+                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                    self.prject_id = p[id]
+                    return self.project_id
+        self.module.fail_json(msg="project '%s' not found" % project)
+
+
+    def get_ip_address_id(self):
+        if self.ip_address_id:
+            return self.ip_address_id
+
         args = {}
-        args['id'] = iso['id']
-        args['zoneid'] = zone_id
-        if not module.check_mode:
-            res = cs.deleteIso(**args)
-    return (result, iso)
+        args['ipaddress'] = self.module.params.get('ip_address')
+        args['projectid'] = self.get_project_id()
+        ip_addresses = self.cs.listPublicIpAddresses(**args)
+
+        if not ip_addresses:
+            self.module.fail_json(msg="ip address '%s' not found" % args['ipaddress'])
+
+        self.ip_address_id = ip_addresses['publicipaddress'][0]['id']
+        return self.ip_address_id
+
+
+    def get_vm_id(self):
+        if self.vm_id:
+            return self.vm_id
+
+        vm = self.module.params.get('vm')
+        args['projectid'] = self.get_project_id()
+        vms = self.cs.listVirtualMachines(**args)
+        if vms:
+            for v in vms['virtualmachine']:
+                if vm in [ v['name'], v['id'] ]:
+                    self.vm_id = v['id']
+                    return self.vm_id
+        self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
+
+
+    def get_zone_id(self):
+        if self.zone_id:
+            return self.zone_id
+
+        zone = self.module.params.get('zone')
+        zones = self.cs.listZones()
+
+        # use the first zone if no zone param
+        if not zone:
+            self.zone_id = zones['zone'][0]['id']
+            return self.zone_id
+
+        if zones:
+            for z in zones['zone']:
+                if zone in [ z['name'], z['id'] ]:
+                    self.zone_id = z['id']
+                    return self.zone_id
+        self.module.fail_json(msg="zone '%s' not found" % zone)
+
+
+    def get_os_type_id(self):
+        if self.os_type_id:
+            return self.os_type_id
+
+        os_type = self.module.params.get('os_type')
+        if not os_type:
+            return None
+
+        os_types = self.cs.listOsTypes()
+        if os_types:
+            for o in os_types['ostype']:
+                if os_type in [ o['description'], o['id'] ]:
+                    self.os_type_id = o['id']
+                    return self.os_type_id
+        self.module.fail_json(msg="OS type '%s' not found" % os_type)
+
+
+    def _poll_job(self, job, key):
+        if 'jobid' in job:
+            while True:
+                res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
+                if res['jobstatus'] != 0:
+                    if 'jobresult' in res and key in res['jobresult']:
+                        job = res['jobresult'][key]
+                    break
+                time.sleep(2)
+        return job
+
+
+class AnsibleCloudStackIso(AnsibleCloudStack):
+
+    def __init__(self, module):
+        AnsibleCloudStack.__init__(self, module)
+
+
+    def register_iso(self, iso):
+        if not iso:
+            args = {}
+            args['zoneid'] = self.get_zone_id()
+            args['bootable'] = self.module.params.get('bootable')
+            args['ostypeid'] = self.get_os_type_id()
+            if args['bootable'] and not args['ostypeid']:
+                self.module.fail_json(msg="OS type is requried if bootable is true.")
+
+            args['url'] = self.module.params.get('url')
+            if not args['url']:
+                self.module.fail_json(msg="URL is requried.")
+
+            args['name'] = self.module.params.get('name')
+            args['displaytext'] = self.module.params.get('name')
+            args['checksum'] = self.module.params.get('checksum')
+            args['isdynamicallyscalable'] = self.module.params.get('is_dynamically_scalable')
+            args['isfeatured'] = self.module.params.get('is_featured')
+            args['ispublic'] = self.module.params.get('is_public')
+
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                iso = self.cs.registerIso(**args)
+        
+        return iso
+
+
+    def get_iso(self):
+        args = {}
+        args['isready'] = self.module.params.get('is_ready')
+        args['isofilter'] = self.module.params.get('iso_filter')
+        args['projectid'] = self.get_project_id()
+        args['zoneid'] = self.get_zone_id()
+
+        # if checksum is set, we only look on that.
+        checksum = self.module.params.get('checksum')
+        if not checksum:
+            args['name'] = self.module.params.get('name')
+
+        isos = self.cs.listIsos(**args)
+        if isos:
+            # if checksum is set, we only look on that.
+            if not checksum:
+                return isos['iso'][0]
+            else:
+                for i in isos['iso']:
+                    if i['checksum'] == checksum:
+                        return i
+        return None
+
+
+    def remove_iso(self, iso):
+        if iso:
+            self.result['changed'] = True
+            args = {}
+            args['id'] = iso['id']
+            args['zoneid'] = zone_id
+            if not self.module.check_mode:
+                res = self.cs.deleteIso(**args)
+        return iso
+
+
+    def get_result(self, iso):
+        if iso:
+            if 'displaytext' in iso:
+                self.result['displaytext'] = iso['displaytext']
+            if 'name' in iso:
+                self.result['name'] = iso['name']
+            if 'zonename' in iso:
+                self.result['zone'] = iso['zonename']
+            if 'checksum' in iso:
+                self.result['checksum'] = iso['checksum']
+            if 'status' in iso:
+                self.result['status'] = iso['status']
+        return self.result
 
 
 def main():
@@ -308,49 +410,20 @@ def main():
         supports_check_mode=True
     )
 
-    result = {}
-    result['changed'] = False
-    state = module.params.get('state')
-
     try:
-        api_key = module.params.get('api_key')
-        api_secret = module.params.get('secret_key')
-        api_url = module.params.get('api_url')
-        api_http_method = module.params.get('api_http_method')
+        ansible_cloudstack_iso = AnsibleCloudStackIso(module)
+        iso = ansible_cloudstack_iso.get_iso()
 
-        if api_key and api_secret and api_url:
-            cs = CloudStack(
-                endpoint=api_url,
-                key=api_key,
-                secret=api_secret,
-                method=api_http_method
-                )
-        else:
-            cs = CloudStack(**read_config())
-
-        zone_id = get_zone_id(module, cs)
-        project_id = get_project_id(module, cs)
-        iso = get_iso(module, cs, zone_id, project_id)
-
+        state = module.params.get('state')
         if state in ['absent']:
-            (result, iso) = remove_iso(module, cs, result, iso, zone_id)
+            iso = ansible_cloudstack_iso.remove_iso(iso)
         else:
-            (result, iso) = register_iso(module, cs, result, iso, zone_id, project_id)
+            iso = ansible_cloudstack_iso.register_iso(iso)
+
+        result = ansible_cloudstack_iso.get_result(iso)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
-
-    if iso:
-        if 'displaytext' in iso:
-            result['displaytext'] = iso['displaytext']
-        if 'name' in iso:
-            result['name'] = iso['name']
-        if 'zonename' in iso:
-            result['zone'] = iso['zonename']
-        if 'checksum' in iso:
-            result['checksum'] = iso['checksum']
-        if 'status' in iso:
-            result['status'] = iso['status']
 
     module.exit_json(**result)
 
