@@ -135,6 +135,8 @@ EXAMPLES = '''
 
 '''
 
+import sys
+
 try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:
@@ -143,125 +145,220 @@ except ImportError:
     sys.exit(1)
 
 
-def get_project_id(module, cs):
-    project = module.params.get('project')
-    if not project:
-        return ''
+class AnsibleCloudStack:
 
-    projects = cs.listProjects()
-    if projects:
-        for p in projects['project']:
-            if p['name'] == project or p['displaytext'] == project or p['id'] == project:
-                return p['id']
-    module.fail_json(msg="project '%s' not found" % project)
+    def __init__(self, module):
+        self.module = module
+        self._connect()
 
-
-def get_ip_address_id(module, cs, project_id):
-    args = {}
-    args['ipaddress'] = module.params.get('ip_address')
-    args['projectid'] = project_id
-    ip_addresses = cs.listPublicIpAddresses(**args)
-
-    if not ip_addresses:
-        module.fail_json(msg="ip address '%s' not found" % args['ipaddress'])
-
-    return ip_addresses['publicipaddress'][0]['id']
+        self.project_id = None
+        self.ip_address_id = None
+        self.zone_id = None
+        self.vm_id = None
+        self.os_type_id = None
 
 
-def get_firewall_rules(module, cs, ip_address_id, project_id):
-    args = {}
-    args['ipaddressid'] = ip_address_id
+    def _connect(self):
+        api_key = self.module.params.get('api_key')
+        api_secret = self.module.params.get('secret_key')
+        api_url = self.module.params.get('api_url')
+        api_http_method = self.module.params.get('api_http_method')
 
-    if project_id:
-        args['projectid'] = project_id
-
-    firewall_rules = cs.listFirewallRules(**args)
-    if firewall_rules and 'firewallrule' in firewall_rules:
-        return firewall_rules['firewallrule']
-    else:
-        return {}
-
-
-def get_firewall_rule(module, cs, ip_address_id, project_id):
-    cidr = module.params.get('cidr')
-    protocol = module.params.get('protocol')
-
-    start_port = module.params.get('start_port')
-    end_port = module.params.get('end_port')
-
-    icmp_code = module.params.get('icmp_code')
-    icmp_type = module.params.get('icmp_type')
-
-    if protocol in ['tcp', 'udp'] and not (start_port and end_port):
-        module.fail_json(msg="no start_port or end_port set for protocol '%s'" % protocol)
-
-    if protocol == 'icmp' and not icmp_type:
-        module.fail_json(msg="no icmp_type set")
-
-    firewall_rules = get_firewall_rules(module, cs, ip_address_id, project_id)
-    for rule in firewall_rules:
-        type_match = type_cidr_match(rule, cidr)
-
-        protocol_match = tcp_udp_match(rule, protocol, start_port, end_port) \
-            or icmp_match(rule, protocol, icmp_code, icmp_type)
-
-        if type_match and protocol_match:
-            return rule
-    return None
+        if api_key and api_secret and api_url:
+            self.cs = CloudStack(
+                endpoint=api_url,
+                key=api_key,
+                secret=api_secret,
+                method=api_http_method
+                )
+        else:
+            self.cs = CloudStack(**read_config())
 
 
-def tcp_udp_match(rule, protocol, start_port, end_port):
-    return protocol in ['tcp', 'udp'] \
-        and protocol == rule['protocol'] \
-        and start_port == int(rule['startport']) \
-        and end_port == int(rule['endport'])
+    def get_project_id(self):
+        if self.project_id:
+            return self.project_id
+
+        project = self.module.params.get('project')
+        if not project:
+            return None
+
+        projects = self.cs.listProjects()
+        if projects:
+            for p in projects['project']:
+                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                    self.prject_id = p[id]
+                    return self.project_id
+        self.module.fail_json(msg="project '%s' not found" % project)
 
 
-def icmp_match(rule, protocol, icmp_code, icmp_type):
-    return protocol == 'icmp' \
-       and protocol == rule['protocol'] \
-       and icmp_code == rule['icmpcode'] \
-       and icmp_type == rule['icmptype']
+    def get_ip_address_id(self):
+        if self.ip_address_id:
+            return self.ip_address_id
 
-
-def type_cidr_match(rule, cidr):
-    return cidr == rule['cidrlist']
-
-
-def create_firewall_rule(module, cs, result, project_id):
-    ip_address_id = get_ip_address_id(module, cs, project_id)
-    firewall_rule = get_firewall_rule(module, cs, ip_address_id, project_id)
-
-    if not firewall_rule:
-        result['changed'] = True
         args = {}
-        args['cidrlist'] = module.params.get('cidr')
-        args['protocol'] = module.params.get('protocol')
-        args['startport'] = module.params.get('start_port')
-        args['endport'] = module.params.get('end_port')
-        args['icmptype'] = module.params.get('icmp_type')
-        args['icmpcode'] = module.params.get('icmp_code')
-        args['ipaddressid'] = ip_address_id
+        args['ipaddress'] = self.module.params.get('ip_address')
+        args['projectid'] = self.get_project_id()
+        ip_addresses = self.cs.listPublicIpAddresses(**args)
 
-        if not module.check_mode:
-            firewall_rule = cs.createFirewallRule(**args)
+        if not ip_addresses:
+            self.module.fail_json(msg="ip address '%s' not found" % args['ipaddress'])
 
-    return (result, firewall_rule)
+        self.ip_address_id = ip_addresses['publicipaddress'][0]['id']
+        return self.ip_address_id
 
 
-def remove_firewall_rule(module, cs, result, project_id):
-    ip_address_id = get_ip_address_id(module, cs, project_id)
-    firewall_rule = get_firewall_rule(module, cs, ip_address_id, project_id)
+    def get_vm_id(self):
+        if self.vm_id:
+            return self.vm_id
 
-    if firewall_rule:
-        result['changed'] = True
+        vm = self.module.params.get('vm')
+        args['projectid'] = self.get_project_id()
+        vms = self.cs.listVirtualMachines(**args)
+        if vms:
+            for v in vms['virtualmachine']:
+                if vm in [ v['name'], v['id'] ]:
+                    self.vm_id = v['id']
+                    return self.vm_id
+        self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
+
+
+    def get_zone_id(self):
+        if self.zone_id:
+            return self.zone_id
+
+        zone = self.module.params.get('zone')
+        zones = self.cs.listZones()
+
+        # use the first zone if no zone param
+        if not zone:
+            self.zone_id = zones['zone'][0]['id']
+            return self.zone_id
+
+        if zones:
+            for z in zones['zone']:
+                if zone in [ z['name'], z['id'] ]:
+                    self.zone_id = z['id']
+                    return self.zone_id
+        self.module.fail_json(msg="zone '%s' not found" % zone)
+
+
+    def get_os_type_id(self):
+        if self.os_type_id:
+            return self.os_type_id
+
+        os_type = self.module.params.get('os_type')
+        if not os_type:
+            return None
+
+        os_types = self.cs.listOsTypes()
+        if os_types:
+            for o in os_types['ostype']:
+                if os_type in [ o['description'], o['id'] ]:
+                    self.os_type_id = o['id']
+                    return self.os_type_id
+        self.module.fail_json(msg="OS type '%s' not found" % os_type)
+
+
+    def _poll_job(self, job, key):
+        if 'jobid' in job:
+            while True:
+                res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
+                if res['jobstatus'] != 0:
+                    if 'jobresult' in res and key in res['jobresult']:
+                        job = res['jobresult'][key]
+                    break
+                time.sleep(2)
+        return job
+
+
+class AnsibleCloudStackFirewall(AnsibleCloudStack):
+
+    def __init__(self, module):
+        AnsibleCloudStack.__init__(self, module)
+
+
+    def get_firewall_rule(self):
+        cidr = self.module.params.get('cidr')
+        protocol = self.module.params.get('protocol')
+        start_port = self.module.params.get('start_port')
+        end_port = self.module.params.get('end_port')
+        icmp_code = self.module.params.get('icmp_code')
+        icmp_type = self.module.params.get('icmp_type')
+
+        if protocol in ['tcp', 'udp'] and not (start_port and end_port):
+            self.module.fail_json(msg="no start_port or end_port set for protocol '%s'" % protocol)
+
+        if protocol == 'icmp' and not icmp_type:
+            self.module.fail_json(msg="no icmp_type set")
+
         args = {}
-        args['id'] = firewall_rule['id']
+        args['ipaddressid'] = self.get_ip_address_id()
+        args['projectid'] = self.project_id()
 
-        if not module.check_mode:
-            res = cs.deleteFirewallRule(**args)
+        firewall_rules = self.cs.listFirewallRules(**args)
+        if firewall_rules and 'firewallrule' in firewall_rules:
+            for rule in firewall_rules['firewallrule']:
+                type_match = self._type_cidr_match(rule, cidr)
 
-    return (result, firewall_rule)
+                protocol_match = self._tcp_udp_match(rule, protocol, start_port, end_port) \
+                    or self._icmp_match(rule, protocol, icmp_code, icmp_type)
+
+                if type_match and protocol_match:
+                    return rule
+        return None
+
+
+    def _tcp_udp_match(self, rule, protocol, start_port, end_port):
+        return protocol in ['tcp', 'udp'] \
+            and protocol == rule['protocol'] \
+            and start_port == int(rule['startport']) \
+            and end_port == int(rule['endport'])
+
+
+    def _icmp_match(self, rule, protocol, icmp_code, icmp_type):
+        return protocol == 'icmp' \
+           and protocol == rule['protocol'] \
+           and icmp_code == rule['icmpcode'] \
+           and icmp_type == rule['icmptype']
+
+
+    def _type_cidr_match(self, rule, cidr):
+        return cidr == rule['cidrlist']
+
+
+    def create_firewall_rule(self, firewall_rule):
+
+        if not firewall_rule:
+            self.result['changed'] = True
+            args = {}
+            args['cidrlist'] = self.module.params.get('cidr')
+            args['protocol'] = self.module.params.get('protocol')
+            args['startport'] = self.module.params.get('start_port')
+            args['endport'] = self.module.params.get('end_port')
+            args['icmptype'] = self.module.params.get('icmp_type')
+            args['icmpcode'] = self.module.params.get('icmp_code')
+            args['ipaddressid'] = self.get_ip_address_id()
+
+            if not self.module.check_mode:
+                firewall_rule = self.cs.createFirewallRule(**args)
+
+        return firewall_rule
+
+
+    def remove_firewall_rule(self, firewall_rule):
+        if firewall_rule:
+            self.result['changed'] = True
+            args = {}
+            args['id'] = firewall_rule['id']
+
+            if not self.module.check_mode:
+                res = self.cs.deleteFirewallRule(**args)
+
+        return firewall_rule
+
+    def get_result(self):
+        return self.result
 
 
 def main():
@@ -291,33 +388,17 @@ def main():
         supports_check_mode=True
     )
 
-    result = {}
-    state = module.params.get('state')
-    result['changed'] = False
-
     try:
-        api_key = module.params.get('api_key')
-        api_secret = module.params.get('secret_key')
-        api_url = module.params.get('api_url')
-        api_http_method = module.params.get('api_http_method')
+        ansible_cloudstack_firewall = AnsibleCloudStackFirewall(module)
+        firewall_rule = ansible_cloudstack_firewall.get_firewall_rule()
 
-        if api_key and api_secret and api_url:
-            cs = CloudStack(
-                endpoint=api_url,
-                key=api_key,
-                secret=api_secret,
-                method=api_http_method
-                )
-        else:
-            cs = CloudStack(**read_config())
-
-        project_id = get_project_id(module, cs)
-
+        state = self.module.params.get('state')
         if state in ['absent']:
-            (result, firewall_rule) = remove_firewall_rule(module, cs, result, project_id)
+            firewall_rule = ansible_cloudstack_firewall.remove_firewall_rule(firewall_rule)
+        else:
+            firewall_rule = ansible_cloudstack_firewall.create_firewall_rule(firewall_rule)
 
-        elif state in ['present']:
-            (result, firewall_rule) = create_firewall_rule(module, cs, result, project_id)
+        result = ansible_cloudstack_firewall.get_result(firewall_rule)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
