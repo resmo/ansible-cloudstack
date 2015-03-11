@@ -219,7 +219,7 @@ class AnsibleCloudStack:
         if projects:
             for p in projects['project']:
                 if project in [ p['name'], p['displaytext'], p['id'] ]:
-                    self.prject_id = p[id]
+                    self.project_id = p[id]
                     return self.project_id
         self.module.fail_json(msg="project '%s' not found" % project)
 
