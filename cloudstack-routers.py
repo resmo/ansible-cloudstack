@@ -148,6 +148,7 @@ class CloudStackInventory(object):
                 if 'linklocalip' in router:
                     data['ansible_ssh_host'] = router['linklocalip']
                 data['state'] = router['state']
+                data['redundant_state'] = router['redundantstate']
                 if 'account' in router:
                     data['account'] = router['account']
                 if 'project' in router:
@@ -219,6 +220,21 @@ class CloudStackInventory(object):
 
             data['_meta']['hostvars'][router_name]['ansible_ssh_host'] = router['linklocalip']
             data['_meta']['hostvars'][router_name]['state'] = router['state']
+            if 'redundantstate' in router:
+                data['_meta']['hostvars'][router_name]['redundant_state'] = router['redundantstate']
+
+                if router['redundantstate'] in [ 'MASTER', 'BACKUP' ]:
+                    data = self.add_group(data, 'redundant_routers', router_name)
+
+                if router['redundantstate'] in [ 'MASTER' ]:
+                    data = self.add_group(data, 'redundant_master_routers', router_name)
+
+                if router['redundantstate'] in [ 'BACKUP' ]:
+                    data = self.add_group(data, 'redundant_backup_routers', router_name)
+
+                if router['redundantstate'] in [ 'UNKNOWN' ]:
+                    data = self.add_group(data, 'non_redundant_routers', router_name)
+
             data['_meta']['hostvars'][router_name]['service_offering'] = router['serviceofferingname']
             data['_meta']['hostvars'][router_name]['nic'] = []
             for nic in router['nic']:
