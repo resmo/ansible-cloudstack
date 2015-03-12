@@ -25,44 +25,39 @@ Ansible CloudStack router inventory script.
 =============================================
 
 Generates Ansible inventory of routers from CloudStack. Configuration is read from
-'cloudstack.ini'. If you need to pass the project, write a simple wrapper
-script, e.g. project_cloudstack.sh:
-
-  #!/bin/bash
-  cloudstack-routers.py --project <your_project> $@
-
+'cloudstack.ini'.
 
 When run against a specific router, this script returns the following attributes
 based on the data obtained from CloudStack API:
 
 {
-  "zone": "ZUERICH", 
-  "default_ip": "1.2.3.4", 
+  "zone": "ZUERICH",
+  "default_ip": "1.2.3.4",
   "nic": [
     {
       "ip": "10.101.66.1", 
-      "mac": "02:00:46:28:00:02", 
+      "mac": "02:00:46:28:00:02",
       "netmask": "255.255.255.0"
-    }, 
+    },
     {
       "ip": "10.100.9.134", 
-      "mac": "02:00:00:38:06:4c", 
+      "mac": "02:00:00:38:06:4c",
       "netmask": "255.255.255.0"
-    }, 
+    },
     {
       "ip": "1.2.3.4", 
-      "mac": "06:0c:fc:00:35:a1", 
+      "mac": "06:0c:fc:00:35:a1",
       "netmask": "255.255.255.128"
     }
-  ], 
-  "ansible_ssh_host": "10.100.9.134", 
-  "state": "Running", 
-  "role": "VIRTUAL_ROUTER", 
+  ],
+  "ansible_ssh_host": "10.100.9.134",
+  "state": "Running",
+  "role": "VIRTUAL_ROUTER",
   "service_offering": "System Offering for Software Router XLarge"
 }
 
 
-usage: cloudstack-routers.py [--list] [--host HOST] [--project PROJECT]
+usage: cloudstack-routers.py [--list] [--host HOST]
 """
 
 import os
@@ -88,7 +83,6 @@ class CloudStackInventory(object):
         parser = argparse.ArgumentParser()
         parser.add_argument('--host')
         parser.add_argument('--list', action='store_true')
-        parser.add_argument('--project')
 
         options = parser.parse_args()
         try:
@@ -96,30 +90,17 @@ class CloudStackInventory(object):
         except CloudStackException, e:
             print >> sys.stderr, "Error: Could not connect to CloudStack API"
 
-        project_id = -1
-        if options.project:
-            project_id = self.get_project_id(options.project)
-
         if options.host:
-            data = self.get_host(options.host, project_id)
+            data = self.get_host(options.host)
             print json.dumps(data, indent=2)
 
         elif options.list:
-            data = self.get_list(project_id)
+            data = self.get_list()
             print json.dumps(data, indent=2)
         else:
-            print >> sys.stderr, "usage: --list | --host <hostname> [--project <project>]"
+            print >> sys.stderr, "usage: --list | --host <hostname>"
             sys.exit(1)
 
-
-    def get_project_id(self, project):
-        projects = self.cs.listProjects(listall=True)
-        if projects:
-            for p in projects['project']:
-                if p['name'] == project or p['id'] == project:
-                    return p['id']
-        print >> sys.stderr, "Error: Project %s not found." % project
-        sys.exit(1)
 
     def add_group(self, data, group_name, router_name):
         if group_name not in data:
@@ -129,10 +110,11 @@ class CloudStackInventory(object):
         data[group_name]['hosts'].append(router_name)
         return data
 
-    def get_host(self, name, project_id):
+
+    def get_host(self, name):
         routers = []
 
-        routers_projects = self.cs.listRouters(projectid=project_id, listall=True)
+        routers_projects = self.cs.listRouters(projectid=-1, listall=True)
         if routers_projects and 'router' in routers_projects:
             routers = routers + routers_projects['router']
 
@@ -168,7 +150,7 @@ class CloudStackInventory(object):
         return data
 
 
-    def get_list(self, project_id):
+    def get_list(self):
         data = {
             'all': {
                 'hosts': [],
@@ -180,7 +162,7 @@ class CloudStackInventory(object):
 
         routers = []
 
-        routers_projects = self.cs.listRouters(projectid=project_id, listall=True)
+        routers_projects = self.cs.listRouters(projectid=-1, listall=True)
         if routers_projects and 'router' in routers_projects:
             routers = routers + routers_projects['router']
 
