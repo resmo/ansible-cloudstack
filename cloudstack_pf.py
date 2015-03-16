@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# (c) 2014, René Moser <mail@renemoser.net>
+# (c) 2015, René Moser <mail@renemoser.net>
 #
 # This file is part of Ansible
 #
@@ -19,96 +19,81 @@
 # along with Ansible. If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
----
-module: cloudstack_iso
-short_description: Register and delete ISOs on Apache CloudStack based clouds.
+module: cloudstack_pf
+short_description: Create and remove port forwarding rules on Apache CloudStack based clouds.
 description:
-    - Manage ISOs on Apache CloudStack, Citrix CloudPlatform and Exoscale.
+    - Manage port forwarding rules on Apache CloudStack, Citrix CloudPlatform
     - Credentials can be stored locally in C($HOME/.cloudstack.ini) instead of using C(api_url), C(api_key), C(api_secret), C(api_http_method), see https://github.com/exoscale/cs on which this module depends on.
     - This module supports check mode.
 version_added: '1.9'
 options:
-  name:
+  ip_address:
     description:
-      - Name of the ISO.
+      - Public IP address the rule is assigned to.
     required: true
     default: null
     aliases: []
-  url:
-    description:
-      - URL where the ISO can be downloaded from. Required if C(state) is present.
-    required: false
-    default: null
-    aliases: []
-  os_type:
-    description:
-      - Name of the OS that best represents the OS of this ISO. If the iso is bootable this parameter needs to be passed. Required if C(state) is present.
-    required: false
-    default: null
-    aliases: []
-  is_ready:
-    description:
-      - This flag is used for searching existing ISOs. If set to C(true), it will only list ISO ready for deployment e.g. successfully downloaded and installed. Recommended to set it to C(false).
-    required: false
-    default: false
-    aliases: []
-  is_public:
-    description:
-      - Register the ISO to be publicly available to all users. Only used if C(state) is present.
-    required: false
-    default: false
-    aliases: []
-  is_featured:
-    description:
-      - Register the ISO to be featured. Only used if C(state) is present.
-    required: false
-    default: false
-    aliases: []
-  is_dynamically_scalable:
-    description:
-      - Register the ISO having XS/VMWare tools installed inorder to support 
-        dynamic scaling of VM cpu/memory. Only used if C(state) is present.
-    required: false
-    default: false
-    aliases: []
-  checksum:
-    description:
-      - The MD5 checksum value of this ISO. If set, we search by checksum instead of name.
-    required: false
-    default: false
-    aliases: []
-  bootable:
-    description:
-      - Register the ISO to be bootable. Only used if C(state) is present.
-    required: false
-    default: true
-    aliases: []
-  project:
-    description:
-      - Name of the project the ISO to be registered in.
-    required: false
-    default: null
-    aliases: []
-  zone:
-    description:
-      - Name of the zone you wish the ISO to be registered or deleted from. If
-        not specified, all zones will be used.
-    required: false
-    default: null
-    aliases: []
-  isofilter:
-    description:
-      - Name of the filter used to search for the ISO.
-    required: false
-    default: 'self'
-    choices: [ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]
-    aliases: []
   state:
     description:
-      - State of the ISO.
+      - State of the port forwarding rule.
     required: false
     default: 'present'
     choices: [ 'present', 'absent' ]
+    aliases: []
+  protocol:
+    description:
+      - Protocol of the port forwarding rule.
+    required: false
+    default: 'tcp'
+    choices: [ 'tcp', 'udp' ]
+    aliases: []
+  cidr:
+    description:
+      - the CIDR to forward traffic from.
+    required: false
+    default: '0.0.0.0\0'
+    aliases: []
+  public start_port
+    description:
+      - Start public port for this rule.
+    required: true
+    default: null
+    aliases: []
+  public end_port
+    description:
+      - End public port for this rule.
+    required: true
+    default: null
+    aliases: []
+  private start_port
+    description:
+      - Start private port for this rule.
+    required: true
+    default: null
+    aliases: []
+  private end_port
+    description:
+      - End private port for this rule.
+    required: true
+    default: null
+    aliases: []
+  open_firewall:
+    description:
+      - Whether the firewall rule for public port should be created.
+    required: false
+    default: false
+    aliases: []
+  vm_guest_ip:
+    description:
+      - VM guest NIC secondary IP address for the port forwarding rule.
+    required: false
+    default: false
+    aliases: []
+  project:
+    description:
+      - Name of the project the VM is located in.
+    required: false
+    default: null
     aliases: []
   api_key:
     description:
@@ -135,46 +120,20 @@ options:
     default: 'get'
     aliases: []
 author: René Moser
-requirements: [ 'cs' ]
+requirements: [ 'python library C(cs)' ]
 '''
 
 EXAMPLES = '''
 ---
-# Register an ISO if ISO name does not already exist.
-- cloudstack_iso:
-     name: Debian 7 64-bit
-     url: http://mirror.switch.ch/ftp/mirror/debian-cd/current/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
-     os_type: Debian GNU/Linux 7(64-bit)
 
-
-# Register an ISO with given name if ISO md5 checksum does not already exist.
-- cloudstack_iso:
-     name: Debian 7 64-bit
-     url: http://mirror.switch.ch/ftp/mirror/debian-cd/current/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
-     os_type: Debian GNU/Linux 7(64-bit)
-     checksum: 0b31bccccb048d20b551f70830bb7ad0
-
-
-# Remove an ISO by name
-- cloudstack_iso:
-     name: Debian 7 64-bit
-     state: absent
-
-
-# Remove an ISO by checksum
-- cloudstack_iso:
-     name: Debian 7 64-bit
-     checksum: 0b31bccccb048d20b551f70830bb7ad0
-     state: absent
 '''
-
 import sys
 
 try:
     from cs import CloudStack, CloudStackException, read_config
 except ImportError:
     print("failed=True " + \
-        "msg='python library cs required. pip install cs'")
+        "msg='python library cs required: pip install cs'")
     sys.exit(1)
 
 
@@ -189,7 +148,6 @@ class AnsibleCloudStack:
         self.zone_id = None
         self.vm_id = None
         self.os_type_id = None
-
 
 
     def _connect(self):
@@ -306,104 +264,103 @@ class AnsibleCloudStack:
         return job
 
 
-class AnsibleCloudStackIso(AnsibleCloudStack):
+class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
 
 
-    def register_iso(self, iso):
-        if not iso:
-            args = {}
-            args['zoneid'] = self.get_zone_id()
-            args['bootable'] = self.module.params.get('bootable')
-            args['ostypeid'] = self.get_os_type_id()
-            if args['bootable'] and not args['ostypeid']:
-                self.module.fail_json(msg="OS type is requried if bootable is true.")
+    def get_portforwarding_rule(self):
+        cidr = self.module.params.get('cidr')
+        protocol = self.module.params.get('protocol')
+        public_start_port = self.module.params.get('public_start_port')
+        public_end_port = self.module.params.get('public_end_port')
+        private_start_port = self.module.params.get('public_start_port')
+        private_end_port = self.module.params.get('public_end_port')
 
-            args['url'] = self.module.params.get('url')
-            if not args['url']:
-                self.module.fail_json(msg="URL is requried.")
-
-            args['name'] = self.module.params.get('name')
-            args['displaytext'] = self.module.params.get('name')
-            args['checksum'] = self.module.params.get('checksum')
-            args['isdynamicallyscalable'] = self.module.params.get('is_dynamically_scalable')
-            args['isfeatured'] = self.module.params.get('is_featured')
-            args['ispublic'] = self.module.params.get('is_public')
-
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                iso = self.cs.registerIso(**args)
-        
-        return iso
-
-
-    def get_iso(self):
         args = {}
-        args['isready'] = self.module.params.get('is_ready')
-        args['isofilter'] = self.module.params.get('iso_filter')
+        args['ipaddressid'] = self.get_ip_address_id()
         args['projectid'] = self.get_project_id()
-        args['zoneid'] = self.get_zone_id()
+        portforwarding_rules = self.cs.listPortForwardingRules(**args)
 
-        # if checksum is set, we only look on that.
-        checksum = self.module.params.get('checksum')
-        if not checksum:
-            args['name'] = self.module.params.get('name')
+        if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
+            for rule in portforwarding_rules:
+                type_match = _type_cidr_match(rule, cidr)
 
-        isos = self.cs.listIsos(**args)
-        if isos:
-            # if checksum is set, we only look on that.
-            if not checksum:
-                return isos['iso'][0]
-            else:
-                for i in isos['iso']:
-                    if i['checksum'] == checksum:
-                        return i
+                protocol_match = _tcp_udp_match(
+                                    rule,
+                                    protocol,
+                                    public_start_port,
+                                    public_end_port,
+                                    private_start_port,
+                                    private_end_port)
+
+                if type_match and protocol_match:
+                    return rule
         return None
 
 
-    def remove_iso(self, iso):
-        if iso:
+    def _tcp_udp_match(self, rule, protocol, public_start_port, public_end_port, private_start_port, private_end_port):
+        return protocol in ['tcp', 'udp'] \
+            and protocol == rule['protocol'] \
+            and start_port == int(rule['startport']) \
+            and end_port == int(rule['endport']) \
+            and start_port == int(rule['startport']) \
+            and end_port == int(rule['endport'])
+
+
+    def _type_cidr_match(self, rule, cidr):
+        return cidr == rule['cidrlist']
+
+
+    def create_portforwarding_rule(self, portforwarding_rule):
+        if not portforwarding_rule:
             self.result['changed'] = True
             args = {}
-            args['id'] = iso['id']
-            args['zoneid'] = zone_id
+            args['cidrlist'] = self.module.params.get('cidr')
+            args['protocol'] = self.module.params.get('protocol')
+            args['startport'] = self.module.params.get('start_port')
+            args['endport'] = self.module.params.get('end_port')
+            args['ipaddressid'] = self.get_ip_address_id()
+            args['openfirewall'] = self.module.params.get('open_firewall')
+            args['vmguestip'] = self.module.params.get('vm_guest_ip')
+
             if not self.module.check_mode:
-                res = self.cs.deleteIso(**args)
-        return iso
+                portforwarding_rule_rule = self.cs.createPortforwardingRule(**args)
+
+        return portforwarding_rule
 
 
-    def get_result(self, iso):
-        if iso:
-            if 'displaytext' in iso:
-                self.result['displaytext'] = iso['displaytext']
-            if 'name' in iso:
-                self.result['name'] = iso['name']
-            if 'zonename' in iso:
-                self.result['zone'] = iso['zonename']
-            if 'checksum' in iso:
-                self.result['checksum'] = iso['checksum']
-            if 'status' in iso:
-                self.result['status'] = iso['status']
+    def remove_portforwarding_rule(self, portforwarding_rule):
+        if portforwarding_rule:
+            self.result['changed'] = True
+            args = {}
+            args['id'] = portforwarding_rule['id']
+
+            if not self.module.check_mode:
+                res = self.cs.deletePortForwardingRule(**args)
+
+        return portforwarding_rule
+
+
+    def get_result(self):
         return self.result
 
 
 def main():
     module = AnsibleModule(
         argument_spec = dict(
-            name = dict(required=True, default=None),
-            url = dict(default=None),
-            os_type = dict(default=None),
-            zone = dict(default=None),
-            isofilter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
-            project = dict(default=None),
-            checksum = dict(default=None),
-            is_ready = dict(choices=BOOLEANS, default=False),
-            bootable = dict(choices=BOOLEANS, default=True),
-            is_featured = dict(choices=BOOLEANS, default=False),
-            is_dynamically_scalable = dict(choices=BOOLEANS, default=False),
+            ip_address = dict(required=True, default=None),
+            cidr = dict(default='0.0.0.0/0'),
+            protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
+            public_start_port = dict(type='int', required=True, default=None),
+            public_end_port = dict(type='int', required=True, default=None),
+            private_start_port = dict(type='int', required=True, default=None),
+            private_end_port = dict(type='int', required=True, default=None),
             state = dict(choices=['present', 'absent'], default='present'),
+            open_firewall = dict(choices=BOOLEANS, default=False),
+            vm_guest_ip = dict(default=None),
+            project = dict(default=None),
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
@@ -413,16 +370,16 @@ def main():
     )
 
     try:
-        ansible_cloudstack_iso = AnsibleCloudStackIso(module)
-        iso = ansible_cloudstack_iso.get_iso()
+        ansible_cloudstack_portforwarding = AnsibleCloudStackPortforwarding(module)
+        portforwarding_rule = ansible_cloudstack_portforwarding.get_portforwarding_rule()
 
         state = module.params.get('state')
         if state in ['absent']:
-            iso = ansible_cloudstack_iso.remove_iso(iso)
+            portforwarding_rule = ansible_cloudstack_portforwarding.remove_portforwarding_rule(portforwarding_rule)
         else:
-            iso = ansible_cloudstack_iso.register_iso(iso)
+            portforwarding_rule = ansible_cloudstack_portforwarding.create_portforwarding_rule(portforwarding_rule)
 
-        result = ansible_cloudstack_iso.get_result(iso)
+        result = ansible_cloudstack_portforwarding.get_result()
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
