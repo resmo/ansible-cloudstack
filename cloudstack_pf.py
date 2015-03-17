@@ -268,6 +268,9 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
+        self.result = {
+            'changed': False,
+        }
 
 
     def get_portforwarding_rule(self):

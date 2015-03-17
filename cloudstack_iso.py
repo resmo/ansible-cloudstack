@@ -310,6 +310,9 @@ class AnsibleCloudStackIso(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
+        self.result = {
+            'changed': False,
+        }
 
 
     def register_iso(self, iso):

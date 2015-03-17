@@ -239,6 +239,9 @@ class AnsibleCloudStackSshKey(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
+        self.result = {
+            'changed': False,
+        }
 
 
     def register_ssh_key(self, ssh_key):
