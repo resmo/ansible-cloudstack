@@ -53,25 +53,25 @@ options:
     required: false
     default: '0.0.0.0\0'
     aliases: []
-  public start_port
+  public_start_port
     description:
       - Start public port for this rule.
     required: true
     default: null
     aliases: []
-  public end_port
+  public_end_port
     description:
       - End public port for this rule.
     required: true
     default: null
     aliases: []
-  private start_port
+  private_start_port
     description:
       - Start private port for this rule.
     required: true
     default: null
     aliases: []
-  private end_port
+  private_end_port
     description:
       - End private port for this rule.
     required: true
@@ -204,6 +204,7 @@ class AnsibleCloudStack:
         if self.vm_id:
             return self.vm_id
 
+        args = {}
         vm = self.module.params.get('vm')
         args['projectid'] = self.get_project_id()
         vms = self.cs.listVirtualMachines(**args)
@@ -278,8 +279,8 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         protocol = self.module.params.get('protocol')
         public_start_port = self.module.params.get('public_start_port')
         public_end_port = self.module.params.get('public_end_port')
-        private_start_port = self.module.params.get('public_start_port')
-        private_end_port = self.module.params.get('public_end_port')
+        private_start_port = self.module.params.get('private_start_port')
+        private_end_port = self.module.params.get('private_end_port')
 
         args = {}
         args['ipaddressid'] = self.get_ip_address_id()
@@ -287,10 +288,10 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         portforwarding_rules = self.cs.listPortForwardingRules(**args)
 
         if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
-            for rule in portforwarding_rules:
-                type_match = _type_cidr_match(rule, cidr)
+            for rule in portforwarding_rules['portforwardingrule']:
+                type_match = self._type_cidr_match(rule, cidr)
 
-                protocol_match = _tcp_udp_match(
+                protocol_match = self._tcp_udp_match(
                                     rule,
                                     protocol,
                                     public_start_port,
@@ -306,10 +307,10 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
     def _tcp_udp_match(self, rule, protocol, public_start_port, public_end_port, private_start_port, private_end_port):
         return protocol in ['tcp', 'udp'] \
             and protocol == rule['protocol'] \
-            and start_port == int(rule['startport']) \
-            and end_port == int(rule['endport']) \
-            and start_port == int(rule['startport']) \
-            and end_port == int(rule['endport'])
+            and public_start_port == int(rule['publicport']) \
+            and public_end_port == int(rule['publicendport']) \
+            and private_start_port == int(rule['privateport']) \
+            and private_end_port == int(rule['privateendport'])
 
 
     def _type_cidr_match(self, rule, cidr):
@@ -320,16 +321,18 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         if not portforwarding_rule:
             self.result['changed'] = True
             args = {}
-            args['cidrlist'] = self.module.params.get('cidr')
             args['protocol'] = self.module.params.get('protocol')
-            args['startport'] = self.module.params.get('start_port')
-            args['endport'] = self.module.params.get('end_port')
+            args['publicport'] = self.module.params.get('public_start_port')
+            args['publicendport'] = self.module.params.get('public_end_port')
+            args['privateport'] = self.module.params.get('private_start_port')
+            args['privateendport'] = self.module.params.get('private_end_port')
+
             args['ipaddressid'] = self.get_ip_address_id()
             args['openfirewall'] = self.module.params.get('open_firewall')
             args['vmguestip'] = self.module.params.get('vm_guest_ip')
-
+            args['virtualmachineid'] = self.get_vm_id()
             if not self.module.check_mode:
-                portforwarding_rule_rule = self.cs.createPortforwardingRule(**args)
+                portforwarding_rule_rule = self.cs.createPortForwardingRule(**args)
 
         return portforwarding_rule
 
@@ -354,7 +357,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             ip_address = dict(required=True, default=None),
-            cidr = dict(default='0.0.0.0/0'),
+            cidr = dict(default=''),
             protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
             public_start_port = dict(type='int', required=True, default=None),
             public_end_port = dict(type='int', required=True, default=None),
@@ -363,6 +366,7 @@ def main():
             state = dict(choices=['present', 'absent'], default='present'),
             open_firewall = dict(choices=BOOLEANS, default=False),
             vm_guest_ip = dict(default=None),
+            vm = dict(required=True, default=None),
             project = dict(default=None),
             api_key = dict(default=None),
             api_secret = dict(default=None),
