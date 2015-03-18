@@ -212,44 +212,6 @@ except ImportError:
     sys.exit(1)
 
 
-def get_project_id(module, cs):
-    project = module.params.get('project')
-    if not project:
-        return None
-
-    projects = cs.listProjects()
-    if projects:
-        for p in projects['project']:
-            if p['name'] == project or p['displaytext'] == project or p['id'] == project:
-                return p['id']
-    module.fail_json(msg="project '%s' not found" % project)
-
-
-def get_zone_id(module, cs):
-    zone = module.params.get('zone')
-    zones = cs.listZones()
-
-    if not zone:
-        return zones['zone'][0]['id']
-
-    if zones:
-        for z in zones['zone']:
-            if z['name'] == zone or z['id'] == zone:
-                return z['id']
-    module.fail_json(msg="zone '%s' not found" % zone)
-
-
-def get_os_type_id(module, cs):
-    os_type = module.params.get('os_type')
-    if not os_type:
-        return None
-
-    os_types = cs.listOsTypes()
-    if os_types:
-        for o in os_types['ostype']:
-            if o['description'] == os_type or o['id'] == os_type:
-                return o['id']
-    module.fail_json(msg="OS type '%s' not found" % os_type)
 
 def register_template(module, cs, result, template, zone_id, project_id):
     if not template:
