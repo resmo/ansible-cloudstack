@@ -96,7 +96,7 @@ options:
     required: false
     default: null
     aliases: []
-  isofilter:
+  iso_filter:
     description:
       - Name of the filter used to search for the ISO.
     required: false
@@ -399,7 +399,7 @@ def main():
             url = dict(default=None),
             os_type = dict(default=None),
             zone = dict(default=None),
-            isofilter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
+            iso_filter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
             project = dict(default=None),
             checksum = dict(default=None),
             is_ready = dict(choices=BOOLEANS, default=False),
