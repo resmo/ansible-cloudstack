@@ -435,7 +435,7 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
         return template
 
 
-    def get_result(self):
+    def get_result(self, template):
         if template:
             if 'displaytext' in template:
                 result['displaytext'] = template['displaytext']
