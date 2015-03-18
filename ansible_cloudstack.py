@@ -21,6 +21,7 @@ class AnsibleCloudStack:
         self.zone_id = None
         self.vm_id = None
         self.os_type_id = None
+        self.hypervisor = None
 
 
     def _connect(self):
@@ -123,6 +124,23 @@ class AnsibleCloudStack:
                     self.os_type_id = o['id']
                     return self.os_type_id
         self.module.fail_json(msg="OS type '%s' not found" % os_type)
+
+
+    def get_hypervisor(self):
+        if self.hypervisor:
+            return self.hypervisor
+
+        hypervisor = self.module.params.get('hypervisor')
+        if not hypervisor:
+            return None
+
+        hypervisors = self.cs.listHypervisors()
+        if hypervisors:
+            for h in hypervisors['hypervisor']:
+                if hypervisor.lower() == h['name'].lower():
+                    self.hypervisor = h['name']
+                    return self.hypervisor
+        self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
     def _poll_job(self, job, key):
