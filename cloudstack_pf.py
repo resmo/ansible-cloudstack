@@ -340,7 +340,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             ip_address = dict(required=True, default=None),
-            protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
+            protocol = dict(choices=['tcp', 'udp'], default='tcp'),
             public_start_port = dict(type='int', required=True, default=None),
             public_end_port = dict(type='int', required=True, default=None),
             private_start_port = dict(type='int', required=True, default=None),
