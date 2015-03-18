@@ -47,12 +47,6 @@ options:
     default: 'tcp'
     choices: [ 'tcp', 'udp' ]
     aliases: []
-  cidr:
-    description:
-      - the CIDR to forward traffic from.
-    required: false
-    default: '0.0.0.0\0'
-    aliases: []
   public_start_port
     description:
       - Start public port for this rule.
@@ -275,7 +269,6 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
 
     def get_portforwarding_rule(self):
-        cidr = self.module.params.get('cidr')
         protocol = self.module.params.get('protocol')
         public_start_port = self.module.params.get('public_start_port')
         public_end_port = self.module.params.get('public_end_port')
@@ -289,17 +282,11 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
         if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
             for rule in portforwarding_rules['portforwardingrule']:
-                type_match = self._type_cidr_match(rule, cidr)
-
-                protocol_match = self._tcp_udp_match(
-                                    rule,
-                                    protocol,
-                                    public_start_port,
-                                    public_end_port,
-                                    private_start_port,
-                                    private_end_port)
-
-                if type_match and protocol_match:
+                if protocol == rule['protocol'] \
+                    and public_start_port == int(rule['publicport']) \
+                    and public_end_port == int(rule['publicendport']) \
+                    and private_start_port == int(rule['privateport']) \
+                    and private_end_port == int(rule['privateendport']):
                     return rule
         return None
 
@@ -311,10 +298,6 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             and public_end_port == int(rule['publicendport']) \
             and private_start_port == int(rule['privateport']) \
             and private_end_port == int(rule['privateendport'])
-
-
-    def _type_cidr_match(self, rule, cidr):
-        return cidr == rule['cidrlist']
 
 
     def create_portforwarding_rule(self, portforwarding_rule):
@@ -357,7 +340,6 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             ip_address = dict(required=True, default=None),
-            cidr = dict(default=''),
             protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
             public_start_port = dict(type='int', required=True, default=None),
             public_end_port = dict(type='int', required=True, default=None),
