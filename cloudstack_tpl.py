@@ -224,6 +224,7 @@ class AnsibleCloudStack:
         self.zone_id = None
         self.vm_id = None
         self.os_type_id = None
+        self.hypervisor = None
 
 
     def _connect(self):
@@ -328,6 +329,23 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="OS type '%s' not found" % os_type)
 
 
+    def get_hypervisor(self):
+        if self.hypervisor:
+            return self.hypervisor
+
+        hypervisor = self.module.params.get('hypervisor')
+        if not hypervisor:
+            return None
+
+        hypervisors = self.cs.listHypervisors()
+        if hypervisors:
+            for h in hypervisors['hypervisor']:
+                if hypervisor.lower() == h['name'].lower():
+                    self.hypervisor = h['name']
+                    return self.hypervisor
+        self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
+
+
     def _poll_job(self, job, key):
         if 'jobid' in job:
             while True:
@@ -355,6 +373,7 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
             args['projectid'] = self.get_project_id()
             args['zoneid'] = self.get_zone_id()
             args['ostypeid'] = self.get_os_type_id()
+            args['hypervisor'] = self.get_hypervisor()
 
             args['url'] = self.smodule.params.get('url')
             if not args['url']:
@@ -369,7 +388,6 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
             args['isfeatured'] = self.module.params.get('is_featured')
             args['ispublic'] = self.module.params.get('is_public')
             args['format'] = self.module.params.get('format')
-            args['hypervisor'] = self.module.params.get('hypervisor')
             args['isrouting'] = self.module.params.get('is_routing')
             args['passwordenabled'] = self.module.params.get('password_enabled')
             args['requireshvm'] = self.module.params.get('requires_hvm')
