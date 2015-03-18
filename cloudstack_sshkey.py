@@ -320,19 +320,20 @@ def main():
     )
 
     try:
-        ansible_cloudstack_sshkey = AnsibleCloudStackSshKey(module)
-        ssh_key = ansible_cloudstack_sshkey.get_ssh_key()
+        acs_sshkey = AnsibleCloudStackSshKey(module)
+        ssh_key = acs_sshkey.get_ssh_key()
 
         state = module.params.get('state')
         if state in ['absent']:
-            ssh_key = ansible_cloudstack_sshkey.remove_ssh_key(ssh_key)
+            ssh_key = acs_sshkey.remove_ssh_key(ssh_key)
         else:
             if module.params.get('public_key'):
-                ssh_key = ansible_cloudstack_sshkey.register_ssh_key(ssh_key)
+                ssh_key = acs_sshkey.register_ssh_key(ssh_key)
             else:
-                ssh_key = ansible_cloudstack_sshkey.create_ssh_key(ssh_key)
+                ssh_key = acs_sshkey.create_ssh_key(ssh_key)
 
-        result = ansible_cloudstack_sshkey.get_result(ssh_key)
+        result = acs_sshkey.get_result(ssh_key)
+
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 

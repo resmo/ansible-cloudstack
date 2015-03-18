@@ -418,16 +418,16 @@ def main():
     )
 
     try:
-        ansible_cloudstack_iso = AnsibleCloudStackIso(module)
-        iso = ansible_cloudstack_iso.get_iso()
+        acs_iso = AnsibleCloudStackIso(module)
+        iso = acs_iso.get_iso()
 
         state = module.params.get('state')
         if state in ['absent']:
-            iso = ansible_cloudstack_iso.remove_iso(iso)
+            iso = acs_iso.remove_iso(iso)
         else:
-            iso = ansible_cloudstack_iso.register_iso(iso)
+            iso = acs_iso.register_iso(iso)
 
-        result = ansible_cloudstack_iso.get_result(iso)
+        result = acs_iso.get_result(iso)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))

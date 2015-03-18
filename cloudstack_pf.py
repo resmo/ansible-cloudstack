@@ -332,7 +332,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         return portforwarding_rule
 
 
-    def get_result(self):
+    def get_result(self, portforwarding_rule):
         return self.result
 
 
@@ -359,16 +359,16 @@ def main():
     )
 
     try:
-        ansible_cloudstack_portforwarding = AnsibleCloudStackPortforwarding(module)
-        portforwarding_rule = ansible_cloudstack_portforwarding.get_portforwarding_rule()
+        acs_pf = AnsibleCloudStackPortforwarding(module)
+        pf_rule = acs_pf.get_portforwarding_rule()
 
         state = module.params.get('state')
         if state in ['absent']:
-            portforwarding_rule = ansible_cloudstack_portforwarding.remove_portforwarding_rule(portforwarding_rule)
+            pf_rule = acs_pf.remove_portforwarding_rule(pf_rule)
         else:
-            portforwarding_rule = ansible_cloudstack_portforwarding.create_portforwarding_rule(portforwarding_rule)
+            pf_rule = acs_pf.create_portforwarding_rule(pf_rule)
 
-        result = ansible_cloudstack_portforwarding.get_result()
+        result = acs_pf.get_result(pf_rule)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))

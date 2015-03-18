@@ -487,16 +487,16 @@ def main():
     )
 
     try:
-        ansible_cloudstack_tpl = AnsibleCloudStackTemplate(module)
-        tpl = ansible_cloudstack_tpl.get_template()
+        acs_tpl = AnsibleCloudStackTemplate(module)
+        tpl = acs_tpl.get_template()
 
         state = module.params.get('state')
         if state in ['absent']:
-            tpl = ansible_cloudstack_tpl.remove_template(tpl)
+            tpl = acs_tpl.remove_template(tpl)
         else:
-            tpl = ansible_cloudstack_tpl.register_iso(iso)
+            tpl = acs_tpl.register_iso(tpl)
 
-        result = ansible_cloudstack_tpl.get_result(tpl)
+        result = acs_tpl.get_result(tpl)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))

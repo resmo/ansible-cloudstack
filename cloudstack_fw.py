@@ -360,7 +360,7 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
 
         return firewall_rule
 
-    def get_result(self):
+    def get_result(self, firewall_rule):
         return self.result
 
 
@@ -392,16 +392,16 @@ def main():
     )
 
     try:
-        ansible_cloudstack_firewall = AnsibleCloudStackFirewall(module)
-        firewall_rule = ansible_cloudstack_firewall.get_firewall_rule()
+        acs_fw = AnsibleCloudStackFirewall(module)
+        fw_rule = acs_fw.get_firewall_rule()
 
         state = self.module.params.get('state')
         if state in ['absent']:
-            firewall_rule = ansible_cloudstack_firewall.remove_firewall_rule(firewall_rule)
+            fw_rule = acs_fw.remove_firewall_rule(fw_rule)
         else:
-            firewall_rule = ansible_cloudstack_firewall.create_firewall_rule(firewall_rule)
+            fw_rule = acs_fw.create_firewall_rule(fw_rule)
 
-        result = ansible_cloudstack_firewall.get_result(firewall_rule)
+        result = acs_fw.get_result(fw_rule)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
