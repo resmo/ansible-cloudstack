@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # (c) 2015, Dong Xie <dong.xie@interoute.com>
+# (c) 2015, René Moser <mail@renemoser.net>
 #
 # This file is part of Ansible
 #
@@ -194,7 +195,7 @@ options:
     required: false
     default: 'get'
     aliases: []
-author: Dong Xie 
+author: Dong Xie, René Moser
 requirements: [ 'cs' ]
 '''
 
