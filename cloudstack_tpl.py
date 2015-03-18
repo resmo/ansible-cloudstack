@@ -340,71 +340,98 @@ class AnsibleCloudStack:
         return job
 
 
-def register_template(module, cs, result, template, zone_id, project_id):
-    if not template:
+class AnsibleCloudStackTemplate(AnsibleCloudStack):
+
+    def __init__(self, module):
+        AnsibleCloudStack.__init__(self, module)
+        self.result = {
+            'changed': False,
+        }
+
+
+    def register_template(self, template):
+        if not template:
+            args = {}
+            args['projectid'] = self.get_project_id()
+            args['zoneid'] = self.get_zone_id()
+            args['ostypeid'] = self.get_os_type_id()
+
+            args['url'] = self.smodule.params.get('url')
+            if not args['url']:
+                self.module.fail_json(msg="URL is requried.")
+
+            args['name'] = self.module.params.get('name')
+            args['displaytext'] = self.module.params.get('displaytext')
+            args['bits'] = self.module.params.get('bits')
+            args['checksum'] = self.module.params.get('checksum')
+            args['isdynamicallyscalable'] = self.module.params.get('is_dynamically_scalable')
+            args['isextractable'] = self.module.params.get('isextractable')
+            args['isfeatured'] = self.module.params.get('is_featured')
+            args['ispublic'] = self.module.params.get('is_public')
+            args['format'] = self.module.params.get('format')
+            args['hypervisor'] = self.module.params.get('hypervisor')
+            args['isrouting'] = self.module.params.get('is_routing')
+            args['passwordenabled'] = self.module.params.get('password_enabled')
+            args['requireshvm'] = self.module.params.get('requires_hvm')
+            args['sshkeyenabled'] = self.module.params.get('sshkey_enabled')
+            args['templatetag'] = self.module.params.get('template_tag')
+
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                template = self.cs.registerTemplate(**args)
+        return template
+
+
+    def get_template(self):
         args = {}
-        if project_id:
-           args['projectid'] = project_id
+        args['isready'] = self.module.params.get('is_ready')
+        args['projectid'] = self.get_project_id()
+        args['zoneid'] = self.get_zone_id()
+        args['templatefilter'] = self.module.params.get('template_filter')
 
-        if not zone_id:
-            module.fail_json(msg="Zone is requried.")
-        args['zoneid'] = zone_id
-
-        args['ostypeid'] = get_os_type_id(module, cs)
-
-        args['url'] = module.params.get('url')
-        if not args['url']:
-            module.fail_json(msg="URL is requried.")
-
-        args['name'] = module.params.get('name')
-        args['displaytext'] = module.params.get('displaytext')
-        args['checksum'] = module.params.get('checksum')
-        args['isdynamicallyscalable'] = module.params.get('is_dynamically_scalable')
-        args['isfeatured'] = module.params.get('is_featured')
-        args['ispublic'] = module.params.get('is_public')
-        args['format'] = module.params.get('format')
-        args['hypervisor'] = module.params.get('hypervisor')
-
-        result['changed'] = True
-        if not module.check_mode:
-            template = cs.registerTemplate(**args)
-    return (result, template)
-
-def get_template(module, cs, zone_id, project_id):
-    args = {}
-    args['isready'] = module.params.get('is_ready')
-    if project_id:
-        args['projectid'] = project_id
-    if zone_id:
-        args['zoneid'] = zone_id
-    args['templatefilter'] = module.params.get('template_filter')
-
-    # if checksum is set, we only look on that.
-    checksum = module.params.get('checksum')
-    if not checksum:
-        args['name'] = module.params.get('name')
-
-    templates = cs.listTemplates(**args)
-    if templates:
         # if checksum is set, we only look on that.
+        checksum = self.module.params.get('checksum')
         if not checksum:
-            return templates['template'][0]
-        else:
-            for i in templates['template']:
-                if i['checksum'] == checksum:
-                    return i
-    return None
+            args['name'] = self.module.params.get('name')
+
+        templates = self.cs.listTemplates(**args)
+        if templates:
+            # if checksum is set, we only look on that.
+            if not checksum:
+                return templates['template'][0]
+            else:
+                for i in templates['template']:
+                    if i['checksum'] == checksum:
+                        return i
+        return None
 
 
-def remove_template(module, cs, result, template, zone_id):
-    if template:
-        result['changed'] = True
-        args = {}
-        args['id'] = template['id']
-        args['zoneid'] = zone_id
-        if not module.check_mode:
-            res = cs.deleteTemplate(**args)
-    return (result, template)
+    def remove_template(self, template):
+        if template:
+            self.result['changed'] = True
+            args = {}
+            args['id'] = template['id']
+            args['zoneid'] = self.get_zone_id()
+            if not self.module.check_mode:
+                res = self.cs.deleteTemplate(**args)
+        return template
+
+
+    def get_result(self):
+        if template:
+            if 'displaytext' in template:
+                result['displaytext'] = template['displaytext']
+            if 'name' in template:
+                result['name'] = template['name']
+            if 'zonename' in template:
+                result['zone'] = template['zonename']
+            if 'checksum' in template:
+                result['checksum'] = template['checksum']
+            if 'status' in template:
+                result['status'] = template['status']
+            if 'created' in template:
+                result['created'] = template['created']
+        return self.result
 
 
 def main():
@@ -441,49 +468,20 @@ def main():
         supports_check_mode=True
     )
 
-    result = {}
-    result['changed'] = False
-    state = module.params.get('state')
-
     try:
-        api_key = module.params.get('api_key')
-        api_secret = module.params.get('secret_key')
-        api_url = module.params.get('api_url')
-        api_http_method = module.params.get('api_http_method')
-        
-        if api_key and api_secret and api_url:
-            cs = CloudStack(
-                endpoint=api_url,
-                key=api_key,
-                secret=api_secret,
-                method=api_http_method
-                )
-        else:
-            cs = CloudStack(**read_config())
+        ansible_cloudstack_tpl = AnsibleCloudStackTemplate(module)
+        tpl = ansible_cloudstack_tpl.get_template()
 
-        zone_id = get_zone_id(module, cs)
-        project_id = get_project_id(module, cs)
-        template = get_template(module, cs, zone_id, project_id)
-
+        state = module.params.get('state')
         if state in ['absent']:
-            (result, template) = remove_template(module, cs, result, template, zone_id)
+            tpl = ansible_cloudstack_tpl.remove_template(tpl)
         else:
-            (result, template) = register_template(module, cs, result, template, zone_id, project_id)
+            tpl = ansible_cloudstack_tpl.register_iso(iso)
+
+        result = ansible_cloudstack_tpl.get_result(tpl)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
-
-    if template:
-        if 'displaytext' in template:
-            result['displaytext'] = template['displaytext']
-        if 'name' in template:
-            result['name'] = template['name']
-        if 'zonename' in template:
-            result['zone'] = template['zonename']
-        if 'checksum' in template:
-            result['checksum'] = template['checksum']
-        if 'status' in template:
-            result['status'] = template['status']
 
     module.exit_json(**result)
 
