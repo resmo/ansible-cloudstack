@@ -315,7 +315,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             args['vmguestip'] = self.module.params.get('vm_guest_ip')
             args['virtualmachineid'] = self.get_vm_id()
             if not self.module.check_mode:
-                portforwarding_rule_rule = self.cs.createPortForwardingRule(**args)
+                portforwarding_rule = self.cs.createPortForwardingRule(**args)
 
         return portforwarding_rule
 
