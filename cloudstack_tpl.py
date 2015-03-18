@@ -90,7 +90,7 @@ options:
     required: false
     default: null
     aliases: []
-  templatefilter:
+  template_filter:
     description:
       - Name of the filter used to search for the template.
     required: false
@@ -103,31 +103,31 @@ options:
     required: true
     default: null
     aliases: []
-  requireshvm:
+  requires_hvm:
     description:
       - true if this template requires HVM.
     required: false
     default: false
     aliases: []
-  passwordenabled:
+  password_enabled:
     description:
       - true if the template supports the password reset feature.
     required: false
     default: false
     aliases: []
-  templatetag:
+  template_tag:
     description:
       - the tag for this template.
     required: false
     default: null
     aliases: []
-  sshkeyenabled:
+  sshkey_enabled:
     description:
       - true if the template supports the sshkey upload feature.
     required: false
     default: false
     aliases: []
-  isrouting:
+  is_routing:
     description:
       -  true if the template type is routing i.e., if template is used to deploy router.
     required: false
@@ -139,7 +139,7 @@ options:
     required: true
     default: null
     aliases: []
-  isextractable:
+  is_extractable:
     description:
       - true if the template or its derivatives are extractable.
     required: false
@@ -284,11 +284,11 @@ def register_template(module, cs, result, template, zone_id, project_id):
 def get_template(module, cs, zone_id, project_id):
     args = {}
     args['isready'] = module.params.get('is_ready')
-    args['templatefilter'] = module.params.get('templatefilter')
     if project_id:
         args['projectid'] = project_id
     if zone_id:
         args['zoneid'] = zone_id
+    args['templatefilter'] = module.params.get('template_filter')
 
     # if checksum is set, we only look on that.
     checksum = module.params.get('checksum')
@@ -331,15 +331,15 @@ def main():
             checksum = dict(default=None),
             project = dict(default=None),
             zone = dict(required=True, default=None),
-            templatefilter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
+            template_filter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
             hypervisor = dict(required=True, default=None),
-            requireshvm = dict(choices=BOOLEANS, default=False),
-            passwordenabled = dict(choices=BOOLEANS, default=False),
-            templatetag = dict(default=None),
-            sshkeyenabled = dict(choices=BOOLEANS, default=None),
-            isrouting = dict(choices=BOOLEANS, default=False),
+            requires_hvm = dict(choices=BOOLEANS, default=False),
+            password_enabled = dict(choices=BOOLEANS, default=False),
+            template_tag = dict(default=None),
+            sshkey_enabled = dict(choices=BOOLEANS, default=None),
+            is_routing = dict(choices=BOOLEANS, default=False),
             format = dict(required=True, default=None),
-            isextractable = dict(choices=BOOLEANS, default=False),
+            is_extractable = dict(choices=BOOLEANS, default=False),
             details = dict(default=None),
             bits = dict(default=64, choices=[ 32, 64 ]),
             displaytext = dict(required=True, default=None),
@@ -401,4 +401,3 @@ def main():
 # import module snippets
 from ansible.module_utils.basic import *
 main()
-
