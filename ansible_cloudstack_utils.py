@@ -153,3 +153,11 @@ class AnsibleCloudStack:
                     break
                 time.sleep(2)
         return job
+
+
+    def _strip_empty_args(self, args):
+        send_args = {}
+        for k,v in args.iteritems():
+            if v:
+                send_args[k] = args[k]
+        return send_args
