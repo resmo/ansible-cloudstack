@@ -430,26 +430,40 @@ def scale_vm(module, cs, result, vm):
 
 def remove_vm(module, cs, result, vm):
     if vm:
-        if not module.check_mode:
-            res = cs.destroyVirtualMachine(id=vm['id'])
-            if 'errortext' in res:
-                module.fail_json(msg="Failed: '%s'" % res['errortext'])
+        if vm['state'] not in [ 'expunging', destroying', 'destroyed' ]:
+            result['changed'] = True
+            if not module.check_mode:
+                res = cs.destroyVirtualMachine(id=vm['id'])
+                if 'errortext' in res:
+                    module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
-            poll_async = module.params.get('poll_async')
-            if poll_async:
-                vm = poll_job(cs, res, 'virtualmachine')
+                poll_async = module.params.get('poll_async')
+                if poll_async:
+                    vm = poll_job(cs, res, 'virtualmachine')
 
-        result['changed'] = True
     return (result, vm)
 
 
 def expunge_vm(module, cs, result, vm):
     if vm:
-        if not module.check_mode:
-            res = cs.expungeVirtualMachine(id=vm['id'])
-            if 'errortext' in res:
-                module.fail_json(msg="Failed: '%s'" % res['errortext'])
-        result['changed'] = True
+        res = {}
+        if vm['state'] in [ 'destroying', 'destroyed' ]:
+            result['changed'] = True
+            if not module.check_mode:
+                res = cs.expungeVirtualMachine(id=vm['id'])
+
+        elif vm['state'] not in [ 'expunging' ]:
+            result['changed'] = True
+            if not module.check_mode:
+                res = cs.destroyVirtualMachine(id=vm['id'], expunge=True)
+
+        if res and 'errortext' in res:
+            module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+        poll_async = module.params.get('poll_async')
+        if poll_async:
+            vm = poll_job(cs, res, 'virtualmachine')
+
     return (result, vm)
 
 
