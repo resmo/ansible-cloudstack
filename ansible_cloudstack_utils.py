@@ -62,8 +62,12 @@ class AnsibleCloudStack:
         if self.ip_address_id:
             return self.ip_address_id
 
+        ip_address = self.module.params.get('ip_address')
+        if not ip_address:
+            self.module.fail_json(msg="IP address param 'ip_address' is required")
+
         args = {}
-        args['ipaddress'] = self.module.params.get('ip_address')
+        args['ipaddress'] = ip_address
         args['projectid'] = self.get_project_id()
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
