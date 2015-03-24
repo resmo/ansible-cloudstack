@@ -362,7 +362,7 @@ def main():
             state = dict(choices=['present', 'absent'], default='present'),
             open_firewall = dict(choices=BOOLEANS, default=False),
             vm_guest_ip = dict(default=None),
-            vm = dict(required=True, default=None),
+            vm = dict(default=None),
             project = dict(default=None),
             api_key = dict(default=None),
             api_secret = dict(default=None),
