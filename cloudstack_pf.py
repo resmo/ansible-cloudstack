@@ -291,15 +291,6 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         return None
 
 
-    def _tcp_udp_match(self, rule, protocol, public_start_port, public_end_port, private_start_port, private_end_port):
-        return protocol in ['tcp', 'udp'] \
-            and protocol == rule['protocol'] \
-            and public_start_port == int(rule['publicport']) \
-            and public_end_port == int(rule['publicendport']) \
-            and private_start_port == int(rule['privateport']) \
-            and private_end_port == int(rule['privateendport'])
-
-
     def create_portforwarding_rule(self, portforwarding_rule):
         if not portforwarding_rule:
             self.result['changed'] = True
