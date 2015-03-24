@@ -119,6 +119,23 @@ requirements: [ 'python library C(cs)' ]
 
 EXAMPLES = '''
 ---
+- name: 1.2.3.4:80 -> web01:8080
+  local_action:
+    module: cloudstack_pf
+    ip_address: 1.2.3.4
+    vm: web01
+    public_port: 80
+    private_port: 8080
+
+
+- name: open ssh port and firewall
+  local_action:
+    module: cloudstack_pf
+    ip_address: '{{ public_ip }}'
+    vm: '{{ inventory_hostname }}'
+    public_port: 22
+    private_port: 22
+    open_firewall: true
 
 '''
 import sys
