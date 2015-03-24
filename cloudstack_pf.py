@@ -47,7 +47,7 @@ options:
     default: 'tcp'
     choices: [ 'tcp', 'udp' ]
     aliases: []
-  public_start_port
+  public_port
     description:
       - Start public port for this rule.
     required: true
@@ -56,10 +56,10 @@ options:
   public_end_port
     description:
       - End public port for this rule.
-    required: true
+    required: false
     default: null
     aliases: []
-  private_start_port
+  private_port
     description:
       - Start private port for this rule.
     required: true
@@ -68,7 +68,7 @@ options:
   private_end_port
     description:
       - End private port for this rule.
-    required: true
+    required: false
     default: null
     aliases: []
   open_firewall:
@@ -270,10 +270,10 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
     def get_portforwarding_rule(self):
         protocol = self.module.params.get('protocol')
-        public_start_port = self.module.params.get('public_start_port')
-        public_end_port = self.module.params.get('public_end_port')
-        private_start_port = self.module.params.get('private_start_port')
-        private_end_port = self.module.params.get('private_end_port')
+        public_port = self.module.params.get('public_port')
+        public_end_port = self.module.params.get('public_end_port', public_port)
+        private_port = self.module.params.get('private_port')
+        private_end_port = self.module.params.get('private_end_port', private_port)
 
         args = {}
         args['ipaddressid'] = self.get_ip_address_id()
@@ -283,9 +283,9 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
             for rule in portforwarding_rules['portforwardingrule']:
                 if protocol == rule['protocol'] \
-                    and public_start_port == int(rule['publicport']) \
+                    and public_port == int(rule['publicport']) \
                     and public_end_port == int(rule['publicendport']) \
-                    and private_start_port == int(rule['privateport']) \
+                    and private_port == int(rule['privateport']) \
                     and private_end_port == int(rule['privateendport']):
                     return rule
         return None
@@ -296,9 +296,9 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             self.result['changed'] = True
             args = {}
             args['protocol'] = self.module.params.get('protocol')
-            args['publicport'] = self.module.params.get('public_start_port')
+            args['publicport'] = self.module.params.get('public_port')
             args['publicendport'] = self.module.params.get('public_end_port')
-            args['privateport'] = self.module.params.get('private_start_port')
+            args['privateport'] = self.module.params.get('private_port')
             args['privateendport'] = self.module.params.get('private_end_port')
 
             args['ipaddressid'] = self.get_ip_address_id()
@@ -332,10 +332,10 @@ def main():
         argument_spec = dict(
             ip_address = dict(required=True, default=None),
             protocol = dict(choices=['tcp', 'udp'], default='tcp'),
-            public_start_port = dict(type='int', required=True, default=None),
-            public_end_port = dict(type='int', required=True, default=None),
-            private_start_port = dict(type='int', required=True, default=None),
-            private_end_port = dict(type='int', required=True, default=None),
+            public_port = dict(type='int', required=True, default=None),
+            public_end_port = dict(type='int', default=None),
+            private_port = dict(type='int', required=True, default=None),
+            private_end_port = dict(type='int', default=None),
             state = dict(choices=['present', 'absent'], default='present'),
             open_firewall = dict(choices=BOOLEANS, default=False),
             vm_guest_ip = dict(default=None),
