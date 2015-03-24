@@ -33,6 +33,12 @@ options:
     required: true
     default: null
     aliases: []
+  vm:
+    description:
+      - Name of virtual machine which we make the port forwardingrule for. Required if C(state=present).
+    required: false
+    default: null
+    aliases: []
   state:
     description:
       - State of the port forwarding rule.
