@@ -390,7 +390,7 @@ class AnsibleCloudStackIso(AnsibleCloudStack):
             if 'status' in iso:
                 self.result['status'] = iso['status']
             if 'created' in iso:
-                result['created'] = iso['created']
+                self.result['created'] = iso['created']
         return self.result
 
 
