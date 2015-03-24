@@ -371,7 +371,7 @@ class AnsibleCloudStackIso(AnsibleCloudStack):
             self.result['changed'] = True
             args = {}
             args['id'] = iso['id']
-            args['zoneid'] = zone_id
+            args['zoneid'] = self.get_zone_id()
             if not self.module.check_mode:
                 res = self.cs.deleteIso(**args)
         return iso
