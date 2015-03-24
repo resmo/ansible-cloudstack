@@ -319,9 +319,14 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
     def get_portforwarding_rule(self):
         protocol = self.module.params.get('protocol')
         public_port = self.module.params.get('public_port')
-        public_end_port = self.module.params.get('public_end_port', public_port)
+        public_end_port = self.module.params.get('public_end_port')
+        if not public_end_port:
+            public_end_port = public_port
+        
         private_port = self.module.params.get('private_port')
-        private_end_port = self.module.params.get('private_end_port', private_port)
+        private_end_port = self.module.params.get('private_end_port')
+        if not private_end_port:
+            private_end_port = private_port
 
         args = {}
         args['ipaddressid'] = self.get_ip_address_id()
