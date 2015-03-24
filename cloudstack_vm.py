@@ -430,7 +430,7 @@ def scale_vm(module, cs, result, vm):
 
 def remove_vm(module, cs, result, vm):
     if vm:
-        if vm['state'] not in [ 'expunging', destroying', 'destroyed' ]:
+        if vm['state'] not in [ 'expunging', 'destroying', 'destroyed' ]:
             result['changed'] = True
             if not module.check_mode:
                 res = cs.destroyVirtualMachine(id=vm['id'])
