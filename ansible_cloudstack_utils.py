@@ -86,6 +86,7 @@ class AnsibleCloudStack:
         if not vm:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
+        args = {}
         args['projectid'] = self.get_project_id()
         vms = self.cs.listVirtualMachines(**args)
         if vms:
