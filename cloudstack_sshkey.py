@@ -268,53 +268,56 @@ class AnsibleCloudStackSshKey(AnsibleCloudStack):
         self.result = {
             'changed': False,
         }
+        self.ssh_key = None
 
 
-    def register_ssh_key(self, ssh_key):
+    def register_ssh_key(self):
+        ssh_key = self.get_ssh_key()
         if not ssh_key:
+            self.result['changed'] = True
             args = {}
             args['projectid'] = self.get_project_id()
-
-            self.result['changed'] = True
+            args['name'] = self.module.params.get('name')
+            args['publickey'] = self.module.params.get('public_key')
             if not self.module.check_mode:
-                args['name'] = self.module.params.get('name')
-                args['publickey'] = self.module.params.get('public_key')
                 ssh_key = self.cs.registerSSHKeyPair(**args)
         return ssh_key
 
 
-    def create_ssh_key(self, ssh_key):
+    def create_ssh_key(self):
+        ssh_key = self.get_ssh_key()
         if not ssh_key:
+            self.result['changed'] = True
             args = {}
             args['projectid'] = self.get_project_id()
-            
-            self.result['changed'] = True
+            args['name'] = self.module.params.get('name')
             if not self.module.check_mode:
-                args['name'] = self.module.params.get('name')
                 res = self.cs.createSSHKeyPair(**args)
                 ssh_key = res['keypair']
-            return ssh_key
+        return ssh_key
 
 
-    def remove_ssh_key(self, ssh_key):
+    def remove_ssh_key(self):
+        ssh_key = self.get_ssh_key()
         if ssh_key:
             self.result['changed'] = True
+            args = {}
+            args['name'] = self.module.params.get('name')
             if not self.module.check_mode:
-                args = {}
-                args['name'] = self.module.params.get('name')
                 res = self.cs.deleteSSHKeyPair(**args)
         return ssh_key
 
 
     def get_ssh_key(self):
-        args = {}
-        args['projectid'] = self.get_project_id()
-        args['name'] = self.module.params.get('name')
+        if not self.ssh_key:
+            args = {}
+            args['projectid'] = self.get_project_id()
+            args['name'] = self.module.params.get('name')
 
-        ssh_keys = self.cs.listSSHKeyPairs(**args)
-        if ssh_keys and 'sshkeypair' in ssh_keys:
-            return ssh_keys['sshkeypair'][0]
-        return None
+            ssh_keys = self.cs.listSSHKeyPairs(**args)
+            if ssh_keys and 'sshkeypair' in ssh_keys:
+                self.ssh_key = ssh_keys['sshkeypair'][0]
+        return self.ssh_key
 
 
     def get_result(self, ssh_key):
@@ -347,16 +350,15 @@ def main():
 
     try:
         acs_sshkey = AnsibleCloudStackSshKey(module)
-        ssh_key = acs_sshkey.get_ssh_key()
 
         state = module.params.get('state')
         if state in ['absent']:
-            ssh_key = acs_sshkey.remove_ssh_key(ssh_key)
+            ssh_key = acs_sshkey.remove_ssh_key()
         else:
             if module.params.get('public_key'):
-                ssh_key = acs_sshkey.register_ssh_key(ssh_key)
+                ssh_key = acs_sshkey.register_ssh_key()
             else:
-                ssh_key = acs_sshkey.create_ssh_key(ssh_key)
+                ssh_key = acs_sshkey.create_ssh_key()
 
         result = acs_sshkey.get_result(ssh_key)
 
