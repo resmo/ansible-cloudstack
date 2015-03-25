@@ -328,34 +328,37 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         self.result = {
             'changed': False,
         }
+        self.portforwarding_rule = None
 
 
     def get_portforwarding_rule(self):
-        protocol = self.module.params.get('protocol')
-        public_port = self.module.params.get('public_port')
-        public_end_port = self.module.params.get('public_end_port')
-        if not public_end_port:
-            public_end_port = public_port
-        
-        private_port = self.module.params.get('private_port')
-        private_end_port = self.module.params.get('private_end_port')
-        if not private_end_port:
-            private_end_port = private_port
+        if not self.portforwarding_rule:
+            protocol = self.module.params.get('protocol')
+            public_port = self.module.params.get('public_port')
+            public_end_port = self.module.params.get('public_end_port')
+            if not public_end_port:
+                public_end_port = public_port
+            
+            private_port = self.module.params.get('private_port')
+            private_end_port = self.module.params.get('private_end_port')
+            if not private_end_port:
+                private_end_port = private_port
 
-        args = {}
-        args['ipaddressid'] = self.get_ip_address_id()
-        args['projectid'] = self.get_project_id()
-        portforwarding_rules = self.cs.listPortForwardingRules(**args)
+            args = {}
+            args['ipaddressid'] = self.get_ip_address_id()
+            args['projectid'] = self.get_project_id()
+            portforwarding_rules = self.cs.listPortForwardingRules(**args)
 
-        if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
-            for rule in portforwarding_rules['portforwardingrule']:
-                if protocol == rule['protocol'] \
-                    and public_port == int(rule['publicport']) \
-                    and public_end_port == int(rule['publicendport']) \
-                    and private_port == int(rule['privateport']) \
-                    and private_end_port == int(rule['privateendport']):
-                    return rule
-        return None
+            if portforwarding_rules and 'portforwardingrule' in portforwarding_rules:
+                for rule in portforwarding_rules['portforwardingrule']:
+                    if protocol == rule['protocol'] \
+                        and public_port == int(rule['publicport']) \
+                        and public_end_port == int(rule['publicendport']) \
+                        and private_port == int(rule['privateport']) \
+                        and private_end_port == int(rule['privateendport']):
+                        self.portforwarding_rule = rule
+                        break
+        return self.portforwarding_rule
 
 
     def create_portforwarding_rule(self):
