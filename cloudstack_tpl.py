@@ -265,8 +265,12 @@ class AnsibleCloudStack:
         if self.ip_address_id:
             return self.ip_address_id
 
+        ip_address = self.module.params.get('ip_address')
+        if not ip_address:
+            self.module.fail_json(msg="IP address param 'ip_address' is required")
+
         args = {}
-        args['ipaddress'] = self.module.params.get('ip_address')
+        args['ipaddress'] = ip_address
         args['projectid'] = self.get_project_id()
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -282,6 +286,10 @@ class AnsibleCloudStack:
             return self.vm_id
 
         vm = self.module.params.get('vm')
+        if not vm:
+            self.module.fail_json(msg="Virtual machine param 'vm' is required")
+
+        args = {}
         args['projectid'] = self.get_project_id()
         vms = self.cs.listVirtualMachines(**args)
         if vms:
@@ -334,15 +342,15 @@ class AnsibleCloudStack:
             return self.hypervisor
 
         hypervisor = self.module.params.get('hypervisor')
-        if not hypervisor:
-            return None
-
         hypervisors = self.cs.listHypervisors()
-        if hypervisors:
-            for h in hypervisors['hypervisor']:
-                if hypervisor.lower() == h['name'].lower():
-                    self.hypervisor = h['name']
-                    return self.hypervisor
+
+        if not hypervisor:
+            return hypervisors['hypervisor'][0]['name']
+
+        for h in hypervisors['hypervisor']:
+            if hypervisor.lower() == h['name'].lower():
+                self.hypervisor = h['name']
+                return self.hypervisor
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 

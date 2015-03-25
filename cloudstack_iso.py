@@ -189,7 +189,7 @@ class AnsibleCloudStack:
         self.zone_id = None
         self.vm_id = None
         self.os_type_id = None
-
+        self.hypervisor = None
 
 
     def _connect(self):
@@ -221,7 +221,7 @@ class AnsibleCloudStack:
         if projects:
             for p in projects['project']:
                 if project in [ p['name'], p['displaytext'], p['id'] ]:
-                    self.project_id = p[id]
+                    self.project_id = p['id']
                     return self.project_id
         self.module.fail_json(msg="project '%s' not found" % project)
 
@@ -230,8 +230,12 @@ class AnsibleCloudStack:
         if self.ip_address_id:
             return self.ip_address_id
 
+        ip_address = self.module.params.get('ip_address')
+        if not ip_address:
+            self.module.fail_json(msg="IP address param 'ip_address' is required")
+
         args = {}
-        args['ipaddress'] = self.module.params.get('ip_address')
+        args['ipaddress'] = ip_address
         args['projectid'] = self.get_project_id()
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -247,6 +251,10 @@ class AnsibleCloudStack:
             return self.vm_id
 
         vm = self.module.params.get('vm')
+        if not vm:
+            self.module.fail_json(msg="Virtual machine param 'vm' is required")
+
+        args = {}
         args['projectid'] = self.get_project_id()
         vms = self.cs.listVirtualMachines(**args)
         if vms:
@@ -292,6 +300,23 @@ class AnsibleCloudStack:
                     self.os_type_id = o['id']
                     return self.os_type_id
         self.module.fail_json(msg="OS type '%s' not found" % os_type)
+
+
+    def get_hypervisor(self):
+        if self.hypervisor:
+            return self.hypervisor
+
+        hypervisor = self.module.params.get('hypervisor')
+        hypervisors = self.cs.listHypervisors()
+
+        if not hypervisor:
+            return hypervisors['hypervisor'][0]['name']
+
+        for h in hypervisors['hypervisor']:
+            if hypervisor.lower() == h['name'].lower():
+                self.hypervisor = h['name']
+                return self.hypervisor
+        self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
     def _poll_job(self, job, key):

@@ -297,15 +297,15 @@ class AnsibleCloudStack:
             return self.hypervisor
 
         hypervisor = self.module.params.get('hypervisor')
-        if not hypervisor:
-            return None
-
         hypervisors = self.cs.listHypervisors()
-        if hypervisors:
-            for h in hypervisors['hypervisor']:
-                if hypervisor.lower() == h['name'].lower():
-                    self.hypervisor = h['name']
-                    return self.hypervisor
+
+        if not hypervisor:
+            return hypervisors['hypervisor'][0]['name']
+
+        for h in hypervisors['hypervisor']:
+            if hypervisor.lower() == h['name'].lower():
+                self.hypervisor = h['name']
+                return self.hypervisor
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
