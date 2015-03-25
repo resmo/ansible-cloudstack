@@ -145,9 +145,17 @@ EXAMPLES = '''
     module: cloudstack_pf
     ip_address: '{{ public_ip }}'
     vm: '{{ inventory_hostname }}'
-    public_port: 22
+    public_port: '{{ ansible_ssh_port }}'
     private_port: 22
     open_firewall: true
+
+- name: remove ssh portforwarding
+  local_action:
+    module: cloudstack_pf
+    ip_address: 1.2.3.4
+    public_port: 22
+    private_port: 22
+    state: absent
 
 '''
 import sys
