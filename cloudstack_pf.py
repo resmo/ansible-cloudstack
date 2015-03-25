@@ -358,7 +358,9 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         return None
 
 
-    def create_portforwarding_rule(self, portforwarding_rule):
+    def create_portforwarding_rule(self):
+        portforwarding_rule = self.get_portforwarding_rule()
+
         args = {}
         args['protocol'] = self.module.params.get('protocol')
         args['publicport'] = self.module.params.get('public_port')
@@ -385,14 +387,16 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
                 if not self.module.check_mode:
                     # Seems broken in 4.2.1?, implementing workaround
                     # portforwarding_rule = self.cs.updatePortForwardingRule(**args)
-                    self.remove_portforwarding_rule(portforwarding_rule)
+                    self.remove_portforwarding_rule()
                     portforwarding_rule = self.cs.createPortForwardingRule(**args)
                     if poll_async:
                         portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
-    def remove_portforwarding_rule(self, portforwarding_rule):
+    def remove_portforwarding_rule(self):
+        portforwarding_rule = self.get_portforwarding_rule()
+
         if portforwarding_rule:
             self.result['changed'] = True
             args = {}
@@ -436,13 +440,11 @@ def main():
 
     try:
         acs_pf = AnsibleCloudStackPortforwarding(module)
-        pf_rule = acs_pf.get_portforwarding_rule()
-
         state = module.params.get('state')
         if state in ['absent']:
-            pf_rule = acs_pf.remove_portforwarding_rule(pf_rule)
+            pf_rule = acs_pf.remove_portforwarding_rule()
         else:
-            pf_rule = acs_pf.create_portforwarding_rule(pf_rule)
+            pf_rule = acs_pf.create_portforwarding_rule()
 
         result = acs_pf.get_result(pf_rule)
 
