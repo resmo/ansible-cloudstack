@@ -351,22 +351,36 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
 
     def create_portforwarding_rule(self, portforwarding_rule):
+        args = {}
+        args['protocol'] = self.module.params.get('protocol')
+        args['publicport'] = self.module.params.get('public_port')
+        args['publicendport'] = self.module.params.get('public_end_port')
+        args['privateport'] = self.module.params.get('private_port')
+        args['privateendport'] = self.module.params.get('private_end_port')
+
+        args['ipaddressid'] = self.get_ip_address_id()
+        args['openfirewall'] = self.module.params.get('open_firewall')
+        args['vmguestip'] = self.module.params.get('vm_guest_ip')
+        args['virtualmachineid'] = self.get_vm_id()
+        poll_async = self.module.params.get('poll_async')
+
         if not portforwarding_rule:
             self.result['changed'] = True
-            args = {}
-            args['protocol'] = self.module.params.get('protocol')
-            args['publicport'] = self.module.params.get('public_port')
-            args['publicendport'] = self.module.params.get('public_end_port')
-            args['privateport'] = self.module.params.get('private_port')
-            args['privateendport'] = self.module.params.get('private_end_port')
-
-            args['ipaddressid'] = self.get_ip_address_id()
-            args['openfirewall'] = self.module.params.get('open_firewall')
-            args['vmguestip'] = self.module.params.get('vm_guest_ip')
-            args['virtualmachineid'] = self.get_vm_id()
             if not self.module.check_mode:
                 portforwarding_rule = self.cs.createPortForwardingRule(**args)
-
+                if poll_async:
+                    portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
+        else:
+            vm_id = self.get_vm_id()
+            if vm_id != portforwarding_rule['virtualmachineid']:
+                self.result['changed'] = True
+                if not self.module.check_mode:
+                    # Seems broken in 4.2.1?, implementing workaround
+                    # portforwarding_rule = self.cs.updatePortForwardingRule(**args)
+                    self.remove_portforwarding_rule(portforwarding_rule)
+                    portforwarding_rule = self.cs.createPortForwardingRule(**args)
+                    if poll_async:
+                        portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
