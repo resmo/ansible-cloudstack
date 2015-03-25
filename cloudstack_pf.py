@@ -95,6 +95,12 @@ options:
     required: false
     default: null
     aliases: []
+  poll_async:
+    description:
+      - Poll async jobs until job has finised.
+    required: false
+    default: true
+    aliases: []
   api_key:
     description:
       - API key of the CloudStack API.
@@ -372,6 +378,9 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
             if not self.module.check_mode:
                 res = self.cs.deletePortForwardingRule(**args)
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                    self._poll_job(res, 'portforwardingrule')
 
         return portforwarding_rule
 
@@ -394,6 +403,7 @@ def main():
             vm_guest_ip = dict(default=None),
             vm = dict(default=None),
             project = dict(default=None),
+            poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
