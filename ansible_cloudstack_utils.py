@@ -1,18 +1,46 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
+# (c) 2015, René Moser <mail@renemoser.net>
+#
+# This code is part of Ansible, but is an independent component.
+# This particular file snippet, and this file snippet only, is BSD licensed.
+# Modules you write using this snippet, which is embedded dynamically by Ansible
+# still belong to the author of the module, and may assign their own license
+# to the complete work.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+# USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys
 
 try:
     from cs import CloudStack, CloudStackException, read_config
+    has_lib_cs = True
 except ImportError:
-    print("failed=True " + \
-        "msg='python library cs required. pip install cs'")
-    sys.exit(1)
+    has_lib_cs = False
 
 
 class AnsibleCloudStack:
 
     def __init__(self, module):
+        if not has_lib_cs:
+            module.fail_json(msg="python library cs required: pip install cs")
+
         self.module = module
         self._connect()
 
@@ -72,7 +100,7 @@ class AnsibleCloudStack:
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
         if not ip_addresses:
-            self.module.fail_json(msg="ip address '%s' not found" % args['ipaddress'])
+            self.module.fail_json(msg="IP address '%s' not found" % args['ipaddress'])
 
         self.ip_address_id = ip_addresses['publicipaddress'][0]['id']
         return self.ip_address_id
@@ -91,7 +119,7 @@ class AnsibleCloudStack:
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
-                if vm in [ v['name'], v['id'] ]:
+                if vm in [ v['name'], v['displaytext'] v['id'] ]:
                     self.vm_id = v['id']
                     return self.vm_id
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
@@ -104,7 +132,7 @@ class AnsibleCloudStack:
         zone = self.module.params.get('zone')
         zones = self.cs.listZones()
 
-        # use the first zone if no zone param
+        # use the first zone if no zone param given
         if not zone:
             self.zone_id = zones['zone'][0]['id']
             return self.zone_id
@@ -141,8 +169,10 @@ class AnsibleCloudStack:
         hypervisor = self.module.params.get('hypervisor')
         hypervisors = self.cs.listHypervisors()
 
+        # use the first hypervisor if no hypervisor param given
         if not hypervisor:
-            return hypervisors['hypervisor'][0]['name']
+            self.hypervisor = hypervisors['hypervisor'][0]['name']
+            return self.hypervisor
 
         for h in hypervisors['hypervisor']:
             if hypervisor.lower() == h['name'].lower():
@@ -151,12 +181,14 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
-    def _poll_job(self, job, key):
+    def _poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
-                if res['jobstatus'] != 0:
-                    if 'jobresult' in res and key in res['jobresult']:
+                if res['jobstatus'] != 0 and 'jobresult' in res:
+                    if 'errortext' in res['jobresult']:
+                        self.module.fail_json(msg="Failed: '%s'" % res['jobresult']['errortext'])
+                    if key and key in res['jobresult']:
                         job = res['jobresult'][key]
                     break
                 time.sleep(2)
