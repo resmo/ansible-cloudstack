@@ -16,7 +16,7 @@ Examples
 ~~~yaml
 # Upload an ISO (Note: this should have CloudStack SSH PubKey handling installed):
 - local_action:
-     module: cloudstack_iso:
+     module: cs_iso:
      name: Debian 7 64-bit
      url: http://iso.example.com/debian-cd/7.7.0/amd64/iso-cd/debian-7.7.0-amd64-netinst.iso
      os_type: Debian GNU/Linux 7(64-bit)
@@ -25,20 +25,20 @@ Examples
 
 # Upload your SSH public key
 - local_action:
-    module: cloudstack_sshkey
+    module: cs_sshkeypair
     name: john@example.com
     public_key: '{{ lookup('file', '~/.ssh/id_rsa.pub') }}'
 
 
 # Ensure security group default exists
 - local_action: 
-    module: cloudstack_sg
+    module: cs_securitygroup
     name: default
 
 
 # Add inbound tcp rules to security group default
 - local_action: 
-    module: cloudstack_sg_rule
+    module: cs_securitygroup_rule
     name: default
     start_port: '{{ item }}'
     end_port: '{{ item }}'
@@ -49,7 +49,7 @@ Examples
 
 # Create a virtual machine on CloudStack
 - local_action:
-    module: cloudstack_vm
+    module: cs_virtualmachine
     name: web-vm-1
     iso: Linux Debian 7 64-bit
     hypervisor: VMware
@@ -61,7 +61,7 @@ Examples
 
 # Make a snapshot
 - local_action:
-    module: cloudstack_vmsnapshot
+    module: cs_vmsnapshot
     name: Snapshot before upgrade
     vm: web-vm-1
     snapshot_memory: yes
@@ -69,22 +69,22 @@ Examples
 
 # Change service offering on existing VM
 - local_action:
-    module: cloudstack_vm
+    module: cs_virtualmachine
     name: web-vm-1
     service_offering: Medium
 
 
 # Stop a virtual machine
 - local_action:
-    module: cloudstack_vm
+    module: cs_virtualmachine
     name: web-vm-1
     state: stopped
 
 
 # Start a virtual machine
-- local_action: cloudstack_vm name=web-vm-1 state=started
+- local_action: cs_virtualmachine name=web-vm-1 state=started
 
 
 # Remove a virtual machine on CloudStack
-- local_action: cloudstack_vm name=web-vm-1 state=absent
+- local_action: cs_virtualmachine name=web-vm-1 state=absent
 ~~~
