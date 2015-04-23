@@ -84,6 +84,12 @@ options:
     required: false
     default: []
     aliases: []
+  ipaddress:
+    description:
+      - the ip address for default vm's network.
+    required: false
+    default: null
+    aliases: []
   disk_offering:
     description:
       - Name of the disk offering to be used.
@@ -397,6 +403,10 @@ def create_vm(module, cs, result, vm, project_id):
             affinity_group_names = ','.join(affinity_group_name_list)
         args['affinitygroupnames'] = affinity_group_names
 
+        ipaddress = module.params.get('ipaddress')
+        if ipaddress:
+            args['ipaddress'] = ipaddress
+
         if not module.check_mode:
             vm = cs.deployVirtualMachine(**args)
 
@@ -527,6 +537,7 @@ def main():
             template = dict(default=None),
             iso = dict(default=None),
             networks = dict(type='list', default=None),
+            ipaddress = dict(default=None),
             disk_offering = dict(default=None),
             disk_size = dict(default=None),
             hypervisor = dict(default=None),
