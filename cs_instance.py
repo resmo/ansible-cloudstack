@@ -960,7 +960,7 @@ def main():
         elif state in ['restarted']:
             instance = acs_instance.restart_instance()
 
-        if 'state' in instance and instance['state'].lower() == 'error':
+        if instance and 'state' in instance and instance['state'].lower() == 'error':
             module.fail_json(msg="Instance named '%s' in error state." % module.params.get('name'))
 
         result = acs_instance.get_result(instance)
