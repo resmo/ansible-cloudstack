@@ -39,7 +39,7 @@ Examples
 # Add inbound tcp rules to security group default
 - local_action: 
     module: cs_securitygroup_rule
-    name: default
+    security_group: default
     start_port: '{{ item }}'
     end_port: '{{ item }}'
   with_items:
@@ -49,7 +49,7 @@ Examples
 
 # Create a virtual machine on CloudStack
 - local_action:
-    module: cs_virtualmachine
+    module: cs_instance
     name: web-vm-1
     iso: Linux Debian 7 64-bit
     hypervisor: VMware
@@ -69,22 +69,22 @@ Examples
 
 # Change service offering on existing VM
 - local_action:
-    module: cs_virtualmachine
+    module: cs_instance
     name: web-vm-1
     service_offering: Medium
 
 
 # Stop a virtual machine
 - local_action:
-    module: cs_virtualmachine
+    module: cs_instance
     name: web-vm-1
     state: stopped
 
 
 # Start a virtual machine
-- local_action: cs_virtualmachine name=web-vm-1 state=started
+- local_action: cs_instance name=web-vm-1 state=started
 
 
 # Remove a virtual machine on CloudStack
-- local_action: cs_virtualmachine name=web-vm-1 state=absent
+- local_action: cs_instance name=web-vm-1 state=absent
 ~~~
