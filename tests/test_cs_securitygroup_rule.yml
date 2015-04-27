@@ -1,0 +1,268 @@
+- hosts: localhost
+  connection: local
+  vars:
+  tasks:
+
+###### SETUP
+  - cs_securitygroup: name=default
+  - cs_securitygroup: name=my_user_security_group
+
+# Clear rules
+  - cs_securitygroup_rule:
+      security_group: default
+      protocol: icmp
+      type: ingress
+      icmp_type: -1
+      icmp_code: -1
+      state: absent
+
+  - cs_securitygroup_rule:
+      security_group: default
+      start_port: 80
+      end_port: 81
+      cidr: 1.2.3.4/32
+      state: absent
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 53
+      protocol: udp
+      type: egress
+      user_security_group: my_user_security_group
+      state: absent
+
+###### CREATE
+
+  - cs_securitygroup_rule:
+      security_group: default
+      start_port: 80
+      end_port: 81
+      cidr: 1.2.3.4/32
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'tcp'
+      - sg_rule.start_port == 80
+      - sg_rule.end_port == 81
+      - sg_rule.cidr == '1.2.3.4/32'
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 80
+      end_port: 81
+      cidr: 1.2.3.4/32
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'tcp'
+      - sg_rule.start_port == 80
+      - sg_rule.end_port == 81
+      - sg_rule.cidr == '1.2.3.4/32'
+
+###
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 53
+      protocol: udp
+      type: egress
+      user_security_group: my_user_security_group
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'egress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'udp'
+      - sg_rule.start_port == 53
+      - sg_rule.end_port == 53
+      - sg_rule.user_security_group == 'my_user_security_group'
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 53
+      protocol: udp
+      type: egress
+      user_security_group: my_user_security_group
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'egress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'udp'
+      - sg_rule.start_port == 53
+      - sg_rule.end_port == 53
+      - sg_rule.user_security_group == 'my_user_security_group'
+
+###
+
+  - cs_securitygroup_rule:
+      security_group: default
+      protocol: icmp
+      type: ingress
+      icmp_type: -1
+      icmp_code: -1
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.cidr == '0.0.0.0/0'
+      - sg_rule.protocol == 'icmp'
+      - sg_rule.icmp_code == -1
+      - sg_rule.icmp_type == -1
+
+
+  - cs_securitygroup_rule:
+      security_group: default
+      protocol: icmp
+      type: ingress
+      icmp_type: -1
+      icmp_code: -1
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.cidr == '0.0.0.0/0'
+      - sg_rule.protocol == 'icmp'
+      - sg_rule.icmp_code == -1
+      - sg_rule.icmp_type == -1
+
+
+###### ABSENT
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 80
+      end_port: 81
+      cidr: 1.2.3.4/32
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'tcp'
+      - sg_rule.start_port == 80
+      - sg_rule.end_port == 81
+      - sg_rule.cidr == '1.2.3.4/32'
+
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 80
+      end_port: 81
+      cidr: 1.2.3.4/32
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol is not defined
+      - sg_rule.start_port is not defined
+      - sg_rule.end_port is not defined
+      - sg_rule.cidr is not defined
+
+###
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 53
+      protocol: udp
+      type: egress
+      user_security_group: my_user_security_group
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'egress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol == 'udp'
+      - sg_rule.start_port == 53
+      - sg_rule.end_port == 53
+      - sg_rule.user_security_group == 'my_user_security_group'
+
+  - cs_securitygroup_rule:
+      security_group: default
+      port: 53
+      protocol: udp
+      type: egress
+      user_security_group: my_user_security_group
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'egress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.protocol is not defined
+      - sg_rule.start_port is not defined
+      - sg_rule.end_port is not defined
+      - sg_rule.user_security_group is not defined
+
+  - cs_securitygroup_rule:
+      security_group: default
+      protocol: icmp
+      type: ingress
+      icmp_type: -1
+      icmp_code: -1
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.cidr == '0.0.0.0/0'
+      - sg_rule.protocol == 'icmp'
+      - sg_rule.icmp_code == -1
+      - sg_rule.icmp_type == -1
+
+
+  - cs_securitygroup_rule:
+      security_group: default
+      protocol: icmp
+      type: ingress
+      icmp_type: -1
+      icmp_code: -1
+      state: absent
+    register: sg_rule
+  - assert:
+      that:
+      - sg_rule|success
+      - not sg_rule|changed
+      - sg_rule.type == 'ingress'
+      - sg_rule.security_group == 'default'
+      - sg_rule.cidr is not defined
+      - sg_rule.protocol is not defined
+      - sg_rule.icmp_code is not defined
+      - sg_rule.icmp_type is not defined
+
+###### DOWN
+  - cs_securitygroup: name=my_user_security_group state=absent
+

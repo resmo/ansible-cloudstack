@@ -1,2 +1,5 @@
 ---
 - include: test_cs_sshkeypair.yml
+- include: test_cs_securitygroup.yml
+- include: test_cs_affinitygroup.yml
+- include: test_cs_securitygroup_rule.yml
