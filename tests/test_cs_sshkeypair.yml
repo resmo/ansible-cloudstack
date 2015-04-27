@@ -2,6 +2,8 @@
 - hosts: localhost
   connection: local
   tasks:
+
+# clean setup
   - cs_sshkeypair: name=testkey state=absent
 
   - cs_sshkeypair: name=testkey
