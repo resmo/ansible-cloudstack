@@ -1,0 +1,72 @@
+---
+- hosts: localhost
+  connection: local
+  tasks:
+  - cs_sshkeypair: name=testkey state=absent
+
+  - cs_sshkeypair: name=testkey
+    register: sshkey
+  - assert:
+      that:
+      - sshkey|success
+      - sshkey|changed
+      - sshkey.fingerprint is defined and sshkey.fingerprint != ""
+      - sshkey.private_key is defined and sshkey.private_key != ""
+      - sshkey.name == "testkey"
+
+  - cs_sshkeypair: name=testkey
+    register: sshkey2
+  - assert:
+      that:
+      - sshkey2|success
+      - not sshkey2|changed
+      - sshkey2.fingerprint is defined and sshkey2.fingerprint == sshkey.fingerprint
+      - sshkey2.private_key is not defined
+      - sshkey2.name == "testkey"
+
+
+  - cs_sshkeypair: |
+      name=testkey 
+      public_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDsTI7KJZ8tz/CwQIrSol41c6s3vzkGYCMI8o7P9Et48UG9eRoGaMaGYaTvBTj/VQrD7cfurI6Bn0HTT3FLK3OHOweyelm9rIiQ2hjkSl+2lIKWHu992GO58E5Gcy9yYW4sHGgGLNZkPBKrrj0w7lhmiHjPtVnf+2+7Ix1WOO2/HXPcAHhsX/AlyItDewIL4mr/BT83vq0202sPCiM2cFQJl+5WGwS1wYYK8d167cspsmdyX7OyAFCUB0vueuqjE8MFqJvyIJR9y8Lj9Ny71pSV5/QWrXUgELxMYOKSby3gHkxcIXgYBMFLl4DipRTO74OWQlRRaOlqXlOOQbikcY4T rene.moser@swisstxt.ch"
+    register: sshkey3
+  - assert:
+      that:
+      - sshkey3|success
+      - sshkey3|changed
+      - sshkey3.fingerprint is defined and sshkey3.fingerprint != sshkey2.fingerprint
+      - sshkey3.private_key is not defined
+      - sshkey3.name == "testkey"
+
+
+  - cs_sshkeypair: |
+      name=testkey 
+      public_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDsTI7KJZ8tz/CwQIrSol41c6s3vzkGYCMI8o7P9Et48UG9eRoGaMaGYaTvBTj/VQrD7cfurI6Bn0HTT3FLK3OHOweyelm9rIiQ2hjkSl+2lIKWHu992GO58E5Gcy9yYW4sHGgGLNZkPBKrrj0w7lhmiHjPtVnf+2+7Ix1WOO2/HXPcAHhsX/AlyItDewIL4mr/BT83vq0202sPCiM2cFQJl+5WGwS1wYYK8d167cspsmdyX7OyAFCUB0vueuqjE8MFqJvyIJR9y8Lj9Ny71pSV5/QWrXUgELxMYOKSby3gHkxcIXgYBMFLl4DipRTO74OWQlRRaOlqXlOOQbikcY4T rene.moser@swisstxt.ch"
+    register: sshkey4
+  - assert:
+      that:
+      - sshkey4|success
+      - not sshkey4|changed
+      - sshkey4.fingerprint is defined and sshkey4.fingerprint == sshkey3.fingerprint
+      - sshkey4.private_key is not defined
+      - sshkey4.name == "testkey"
+
+  - cs_sshkeypair: name=testkey state=absent
+    register: sshkey5
+  - assert:
+      that:
+      - sshkey5|success
+      - sshkey5|changed
+      - sshkey5.fingerprint is defined and sshkey5.fingerprint == sshkey3.fingerprint
+      - sshkey5.private_key is not defined
+      - sshkey5.name == "testkey"
+
+
+  - cs_sshkeypair: name=testkey state=absent
+    register: sshkey6
+  - assert:
+      that:
+      - sshkey6|success
+      - not sshkey6|changed
+      - sshkey6.fingerprint is not defined
+      - sshkey6.private_key is not defined
+      - sshkey6.name is not defined
