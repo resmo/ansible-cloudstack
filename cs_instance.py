@@ -189,6 +189,9 @@ EXAMPLES = '''
     template: Linux Debian 7 64-bit
     service_offering: Tiny
     ssh_key: john@example.com
+    tags:
+      - { key: admin, value: john }
+      - { key: foo,   value: bar }
   register: vm
 
 - debug: msg='default ip {{ vm.default_ip }} and is in state {{ vm.state }}'
