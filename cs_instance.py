@@ -520,6 +520,9 @@ class AnsibleCloudStack:
 
 
     def _delete_tags(self, resource, resource_type, tags):
+        if not 'tags' in resource:
+            self.module.fail_json(msg="Error: resource has no tags.")
+
         existing_tags = resource['tags']
         tags_to_delete = []
         for existing_tag in existing_tags:
