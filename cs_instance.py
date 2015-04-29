@@ -129,7 +129,9 @@ options:
     aliases: [ 'affinity_group' ]
   user_data:
     description:
-      - Optional data (ASCII) that can be sent to the instance upon a successful deployment. The data will be automatically base64 encoded, consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET size limit of 2KB to 32 KB.
+      - Optional data (ASCII) that can be sent to the instance upon a successful deployment.
+      - The data will be automatically base64 encoded.
+      - Consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET size limit of 2KB to 32 KB.
     required: false
     default: null
   force:
@@ -137,6 +139,12 @@ options:
       - Force stop/start the instance if required to apply changes, otherwise a running instance will not be changed.
     required: false
     default: true
+  tags:
+    description:
+      - List of tags. Tags are a list of dictionaries having keys C(key) and C(value).
+      - If you want to delete all tags, set a empty list e.g. C(tags: []).
+    required: false
+    default: null
   poll_async:
     description:
       - Poll async jobs until job has finished.
@@ -284,7 +292,7 @@ tags:
   description: List of resource tags associated with the instance.
   returned: success
   type: dict
-  sample: {}
+  sample: '{ bar: foo, for: bar }'
 '''
 
 import base64
@@ -300,6 +308,10 @@ class AnsibleCloudStack:
     def __init__(self, module):
         if not has_lib_cs:
             module.fail_json(msg="python library cs required: pip install cs")
+
+        self.result = {
+            'changed': False,
+        }
 
         self.module = module
         self._connect()
@@ -497,6 +509,62 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
+    def get_tags(self, resource=None):
+        existing_tags = self.cs.listTags(resourceid=resource['id'])
+        if existing_tags:
+            return existing_tags['tag']
+        return []
+
+
+    def _delete_tags(self, resource, resource_type, tags):
+        existing_tags = resource['tags']
+        tags_to_delete = []
+        for existing_tag in existing_tags:
+            if existing_tag['key'] in tags:
+                if existing_tag['value'] != tags[key]:
+                    tags_to_delete.append(existing_tag)
+            else:
+                tags_to_delete.append(existing_tag)
+        if tags_to_delete:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_delete
+                self.cs.deleteTags(**args)
+
+
+    def _create_tags(self, resource, resource_type, tags):
+        tags_to_create = []
+        for i, tag_entry in enumerate(tags):
+            tag = {
+                'key':   tag_entry['key'],
+                'value': tag_entry['value'],
+            }
+            tags_to_create.append(tag)
+        if tags_to_create:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_create
+                self.cs.createTags(**args)
+
+
+    def ensure_tags(self, resource, resource_type=None):
+        if not resource_type or not resource:
+            self.module.fail_json(msg="Error: Missing resource or resource_type for tags.")
+
+        tags = self.module.params.get('tags')
+        if tags is not None:
+            self._delete_tags(resource, resource_type, tags)
+            self._create_tags(resource, resource_type, tags)
+            resource['tags'] = self.get_tags(resource)
+        return resource
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -523,9 +591,6 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
-        self.result = {
-            'changed': False,
-        }
         self.instance = None
 
 
@@ -634,6 +699,9 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             instance = self.deploy_instance()
         else:
             instance = self.update_instance(instance)
+        
+        instance = self.ensure_tags(resource=instance, resource_type='UserVm')
+
         return instance
 
 
@@ -925,6 +993,7 @@ def main():
             zone = dict(default=None),
             ssh_key = dict(default=None),
             force = dict(choices=BOOLEANS, default=False),
+            tags = dict(type='list', aliases=[ 'tag' ], default=None),
             poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
             api_secret = dict(default=None),
