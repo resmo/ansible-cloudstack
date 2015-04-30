@@ -291,6 +291,16 @@ state:
   returned: success
   type: string
   sample: Running
+security_groups:
+  description: Security groups the instance is in.
+  returned: success
+  type: list
+  sample: '[ "default" ]'
+affinity_groups:
+  description: Affinity groups the instance is in.
+  returned: success
+  type: list
+  sample: '[ "webservers" ]'
 tags:
   description: List of resource tags associated with the instance.
   returned: success
@@ -969,6 +979,16 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                     value = tag['value']
                     tags[key] = value
                 self.result['tags'] = tags
+            if 'securitygroup' in instance:
+                security_groups = []
+                for securitygroup in instance['securitygroup']:
+                    security_groups.append(securitygroup['name'])
+                self.result['security_groups'] = security_groups
+            if 'affinitygroup' in instance:
+                affinity_groups = []
+                for affinitygroup in instance['affinitygroup']:
+                    affinity_groups.append(affinitygroup['name'])
+                self.result['affinity_groups'] = affinity_groups
             if 'nic' in instance:
                 for nic in instance['nic']:
                     if nic['isdefault']:
