@@ -305,7 +305,7 @@ tags:
   description: List of resource tags associated with the instance.
   returned: success
   type: dict
-  sample: '{ bar: foo, for: bar }'
+  sample: '[ { "key": "foo", "value": "bar" } ]'
 '''
 
 import base64
@@ -973,12 +973,12 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             if 'state' in instance:
                 self.result['state'] = instance['state']
             if 'tags' in instance:
-                tags = {}
+                self.result['tags'] = []
                 for tag in instance['tags']:
-                    key = tag['key']
-                    value = tag['value']
-                    tags[key] = value
-                self.result['tags'] = tags
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
             if 'securitygroup' in instance:
                 security_groups = []
                 for securitygroup in instance['securitygroup']:
