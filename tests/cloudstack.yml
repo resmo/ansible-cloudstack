@@ -8,7 +8,7 @@
     - { role: test_cs_sshkeypair,           tags: test_cs_sshkeypair }
     - { role: test_cs_affinitygroup,        tags: test_cs_affinitygroup }
     - { role: test_cs_securitygroup,        tags: test_cs_securitygroup }
+    - { role: test_cs_securitygroup_rule,   tags: test_cs_securitygroup_rule }
     - { role: test_cs_instance,             tags: test_cs_instance }
-#    - { role: test_cs_securitygroup_rule,   tags: test_cs_securitygroup_rule }
 #    - { role: test_cs_project,              tags: test_cs_project }
 #    - { role: test_cs_account,              tags: test_cs_account }
