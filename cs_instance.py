@@ -712,7 +712,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         return ','.join(network_ids)
 
 
-    def ensure_instance(self):
+    def present_instance(self):
         instance = self.get_instance()
         if not instance:
             instance = self.deploy_instance()
@@ -838,7 +838,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         return instance
 
 
-    def remove_instance(self):
+    def absent_instance(self):
         instance = self.get_instance()
         if instance:
             if instance['state'].lower() not in ['expunging', 'destroying', 'destroyed']:
@@ -1042,13 +1042,13 @@ def main():
         state = module.params.get('state')
 
         if state in ['absent', 'destroyed']:
-            instance = acs_instance.remove_instance()
+            instance = acs_instance.absent_instance()
 
         elif state in ['expunged']:
             instance = acs_instance.expunge_instance()
 
         elif state in ['present', 'deployed']:
-            instance = acs_instance.ensure_instance()
+            instance = acs_instance.present_instance()
 
         elif state in ['stopped']:
             instance = acs_instance.stop_instance()
