@@ -760,6 +760,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args['securitygroupnames']  = ','.join(self.module.params.get('security_groups'))
         args['affinitygroupnames']  = ','.join(self.module.params.get('affinity_groups'))
 
+        instance = None
         if not self.module.check_mode:
             instance = self.cs.deployVirtualMachine(**args)
 

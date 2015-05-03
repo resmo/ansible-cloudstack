@@ -236,6 +236,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         args['ipaddressid']         = self.get_ip_address(key='id')
         args['virtualmachineid']    = self.get_vm(key='id')
 
+        portforwarding_rule = None
         self.result['changed'] = True
         if not self.module.check_mode:
             portforwarding_rule = self.cs.createPortForwardingRule(**args)
