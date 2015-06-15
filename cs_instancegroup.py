@@ -25,7 +25,7 @@ short_description: Manages instance groups on Apache CloudStack based clouds.
 description:
     - Create and remove instance groups.
 version_added: '2.0'
-author: René Moser
+author: '"René Moser (@resmo)" <mail@renemoser.net>'
 options:
   name:
     description:
@@ -52,6 +52,20 @@ options:
     required: false
     default: 'present'
     choices: [ 'present', 'absent' ]
+extends_documentation_fragment: cloudstack
+'''
+
+EXAMPLES = '''
+# Create an instance group
+- local_action:
+    module: cs_instancegroup
+    name: loadbalancers
+
+# Remove an instance group
+- local_action:
+    module: cs_instancegroup
+    name: loadbalancers
+    state: absent
 '''
 
 RETURN = '''
@@ -94,7 +108,7 @@ try:
 except ImportError:
     has_lib_cs = False
 
-
+# import cloudstack common
 class AnsibleCloudStack:
 
     def __init__(self, module):
@@ -124,19 +138,33 @@ class AnsibleCloudStack:
         api_secret = self.module.params.get('secret_key')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
+        api_timeout = self.module.params.get('api_timeout')
 
         if api_key and api_secret and api_url:
             self.cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
                 secret=api_secret,
+                timeout=api_timeout,
                 method=api_http_method
                 )
         else:
             self.cs = CloudStack(**read_config())
 
-    # TODO: rename to has_changed()
+
+    def get_or_fallback(self, key=None, fallback_key=None):
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
+
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
+        return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
+
+    def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
@@ -169,11 +197,6 @@ class AnsibleCloudStack:
         return my_dict
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_project_id(self):
-        return self.get_project(key='id')
-
-
     def get_project(self, key=None):
         if self.project:
             return self._get_by_key(key, self.project)
@@ -182,21 +205,15 @@ class AnsibleCloudStack:
         if not project:
             return None
         args = {}
-        args['listall'] = True
         args['account'] = self.get_account(key='name')
         args['domainid'] = self.get_domain(key='id')
         projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_ip_address_id(self):
-        return self.get_ip_address(key='id')
 
 
     def get_ip_address(self, key=None):
@@ -221,11 +238,6 @@ class AnsibleCloudStack:
         return self._get_by_key(key, self.ip_address)
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_vm_id(self):
-        return self.get_vm(key='id')
-
-
     def get_vm(self, key=None):
         if self.vm:
             return self._get_by_key(key, self.vm)
@@ -248,11 +260,6 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_zone_id(self):
-        return self.get_zone(key='id')
-
-
     def get_zone(self, key=None):
         if self.zone:
             return self._get_by_key(key, self.zone)
@@ -271,11 +278,6 @@ class AnsibleCloudStack:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_os_type_id(self):
-        return self.get_os_type(key='id')
 
 
     def get_os_type(self, key=None):
@@ -348,7 +350,7 @@ class AnsibleCloudStack:
         args = {}
         args['name'] = domain
         args['listall'] = True
-        domain = self.cs.listDomains(**args)
+        domains = self.cs.listDomains(**args)
         if domains:
             self.domain = domains['domain'][0]
             return self._get_by_key(key, self.domain)
@@ -419,8 +421,13 @@ class AnsibleCloudStack:
         self.capabilities = capabilities['capability']
         return self._get_by_key(key, self.capabilities)
 
-    # TODO: rename to poll_job()
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
+        return self.poll_job(job=job, key=key)
+
+
+    def poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
@@ -446,10 +453,12 @@ class AnsibleCloudStackInstanceGroup(AnsibleCloudStack):
             return self.instance_group
 
         name = self.module.params.get('name')
-        args = {}
-        args['account'] = self.get_account('name')
-        args['domainid'] = self.get_domain('id')
-        args['projectid'] = self.get_project('id')
+
+        args                = {}
+        args['account']     = self.get_account('name')
+        args['domainid']    = self.get_domain('id')
+        args['projectid']   = self.get_project('id')
+
         instance_groups = self.cs.listInstanceGroups(**args)
         if instance_groups:
             for g in instance_groups['instancegroup']:
@@ -463,12 +472,13 @@ class AnsibleCloudStackInstanceGroup(AnsibleCloudStack):
         instance_group = self.get_instance_group()
         if not instance_group:
             self.result['changed'] = True
-            args = {}
-            args['name'] = self.module.params.get('name')
-            args['account'] = self.get_account('name')
-            args['domainid'] = self.get_domain('id')
-            args['projectid'] = self.get_project('id')
-            instance_group = None
+
+            args                = {}
+            args['name']        = self.module.params.get('name')
+            args['account']     = self.get_account('name')
+            args['domainid']    = self.get_domain('id')
+            args['projectid']   = self.get_project('id')
+
             if not self.module.check_mode:
                 res = self.cs.createInstanceGroup(**args)
                 if 'errortext' in res:
@@ -509,14 +519,18 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             name = dict(required=True),
-            state = dict(choices=['present', 'absent'], default='present'),
+            state = dict(default='present', choices=['present', 'absent']),
             domain = dict(default=None),
             account = dict(default=None),
             project = dict(default=None),
             api_key = dict(default=None),
-            api_secret = dict(default=None),
+            api_secret = dict(default=None, no_log=True),
             api_url = dict(default=None),
-            api_http_method = dict(default='get'),
+            api_http_method = dict(choices=['get', 'post'], default='get'),
+            api_timeout = dict(type='int', default=10),
+        ),
+        required_together = (
+            ['api_key', 'api_secret', 'api_url'],
         ),
         supports_check_mode=True
     )
@@ -528,10 +542,8 @@ def main():
         acs_ig = AnsibleCloudStackInstanceGroup(module)
 
         state = module.params.get('state')
-
         if state in ['absent']:
             instance_group = acs_ig.absent_instance_group()
-
         else:
             instance_group = acs_ig.present_instance_group()
 
@@ -539,6 +551,9 @@ def main():
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    except Exception, e:
+        module.fail_json(msg='Exception: %s' % str(e))
 
     module.exit_json(**result)
 

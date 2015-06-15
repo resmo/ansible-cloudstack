@@ -19,28 +19,45 @@
 # along with Ansible. If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
+---
 module: cs_firewall
 short_description: Manages firewall rules on Apache CloudStack based clouds.
-description: Creates and removes firewall rules.
+description:
+    - Creates and removes firewall rules.
 version_added: '2.0'
-author: René Moser
+author: '"René Moser (@resmo)" <mail@renemoser.net>'
 options:
   ip_address:
     description:
-      - Public IP address the rule is assigned to.
-    required: true
+      - Public IP address the ingress rule is assigned to.
+      - Required if C(type=ingress).
+    required: false
+    default: null
+  network:
+    description:
+      - Network the egress rule is related to.
+      - Required if C(type=egress).
+    required: false
+    default: null
   state:
     description:
       - State of the firewall rule.
     required: false
     default: 'present'
     choices: [ 'present', 'absent' ]
+  type:
+    description:
+      - Type of the firewall rule.
+    required: false
+    default: 'ingress'
+    choices: [ 'ingress', 'egress' ]
   protocol:
     description:
       - Protocol of the firewall rule.
+      - C(all) is only available if C(type=egress)
     required: false
     default: 'tcp'
-    choices: [ 'tcp', 'udp', 'icmp' ]
+    choices: [ 'tcp', 'udp', 'icmp', 'all' ]
   cidr:
     description:
       - CIDR (full notation) to be used for firewall rule.
@@ -67,22 +84,36 @@ options:
       - Error code for this icmp message. Considered if C(protocol=icmp).
     required: false
     default: null
-  project:
+  domain:
     description:
-      - Name of the project.
+      - Domain the firewall rule is related to.
     required: false
     default: null
+  account:
+    description:
+      - Account the firewall rule is related to.
+    required: false
+    default: null
+  project:
+    description:
+      - Name of the project the firewall rule is related to.
+    required: false
+    default: null
+  poll_async:
+    description:
+      - Poll async jobs until job has finished.
+    required: false
+    default: true
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
----
 # Allow inbound port 80/tcp from 1.2.3.4 to 4.3.2.1
 - local_action:
     module: cs_firewall
     ip_address: 4.3.2.1
     port: 80
     cidr: 1.2.3.4/32
-
 
 # Allow inbound tcp/udp port 53 to 4.3.2.1
 - local_action:
@@ -94,7 +125,6 @@ EXAMPLES = '''
   - tcp
   - udp
 
-
 # Ensure firewall rule is removed
 - local_action:
     module: cs_firewall
@@ -103,6 +133,70 @@ EXAMPLES = '''
     end_port: 8888
     cidr: 17.0.0.0/8
     state: absent
+
+# Allow all outbound traffic
+- local_action:
+    module: cs_firewall
+    network: my_network
+    type: egress
+    protocol: all
+
+# Allow only HTTP outbound traffic for an IP
+- local_action:
+    module: cs_firewall
+    network: my_network
+    type: egress
+    port: 80
+    cidr: 10.101.1.20
+'''
+
+RETURN = '''
+---
+ip_address:
+  description: IP address of the rule if C(type=ingress)
+  returned: success
+  type: string
+  sample: 10.100.212.10
+type:
+  description: Type of the rule.
+  returned: success
+  type: string
+  sample: ingress
+cidr:
+  description: CIDR of the rule.
+  returned: success
+  type: string
+  sample: 0.0.0.0/0
+protocol:
+  description: Protocol of the rule.
+  returned: success
+  type: string
+  sample: tcp
+start_port:
+  description: Start port of the rule.
+  returned: success
+  type: int
+  sample: 80
+end_port:
+  description: End port of the rule.
+  returned: success
+  type: int
+  sample: 80
+icmp_code:
+  description: ICMP code of the rule.
+  returned: success
+  type: int
+  sample: 1
+icmp_type:
+  description: ICMP type of the rule.
+  returned: success
+  type: int
+  sample: 1
+network:
+  description: Name of the network if C(type=egress)
+  returned: success
+  type: string
+  sample: my_network
 '''
 
 try:
@@ -111,15 +205,22 @@ try:
 except ImportError:
     has_lib_cs = False
 
+# import cloudstack common
 class AnsibleCloudStack:
 
     def __init__(self, module):
         if not has_lib_cs:
             module.fail_json(msg="python library cs required: pip install cs")
 
+        self.result = {
+            'changed': False,
+        }
+
         self.module = module
         self._connect()
 
+        self.domain = None
+        self.account = None
         self.project = None
         self.ip_address = None
         self.zone = None
@@ -134,23 +235,41 @@ class AnsibleCloudStack:
         api_secret = self.module.params.get('secret_key')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
+        api_timeout = self.module.params.get('api_timeout')
 
         if api_key and api_secret and api_url:
             self.cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
                 secret=api_secret,
+                timeout=api_timeout,
                 method=api_http_method
                 )
         else:
             self.cs = CloudStack(**read_config())
 
 
+    def get_or_fallback(self, key=None, fallback_key=None):
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
+
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
+        return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
+
+    def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
+                continue;
+
+            # Skip None values
+            if value is None:
                 continue;
 
             if key in current_dict:
@@ -175,11 +294,6 @@ class AnsibleCloudStack:
         return my_dict
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_project_id(self):
-        return self.get_project(key='id')
-
-
     def get_project(self, key=None):
         if self.project:
             return self._get_by_key(key, self.project)
@@ -187,19 +301,16 @@ class AnsibleCloudStack:
         project = self.module.params.get('project')
         if not project:
             return None
-
-        projects = self.cs.listProjects(listall=True)
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_ip_address_id(self):
-        return self.get_ip_address(key='id')
 
 
     def get_ip_address(self, key=None):
@@ -212,6 +323,8 @@ class AnsibleCloudStack:
 
         args = {}
         args['ipaddress'] = ip_address
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -220,11 +333,6 @@ class AnsibleCloudStack:
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_vm_id(self):
-        return self.get_vm(key='id')
 
 
     def get_vm(self, key=None):
@@ -236,6 +344,8 @@ class AnsibleCloudStack:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
         args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         args['zoneid'] = self.get_zone(key='id')
         vms = self.cs.listVirtualMachines(**args)
@@ -245,11 +355,6 @@ class AnsibleCloudStack:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_zone_id(self):
-        return self.get_zone(key='id')
 
 
     def get_zone(self, key=None):
@@ -270,11 +375,6 @@ class AnsibleCloudStack:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_os_type_id(self):
-        return self.get_os_type(key='id')
 
 
     def get_os_type(self, key=None):
@@ -313,6 +413,104 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
+    def get_account(self, key=None):
+        if self.account:
+            return self._get_by_key(key, self.account)
+
+        account = self.module.params.get('account')
+        if not account:
+            return None
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            self.module.fail_json(msg="Account must be specified with Domain")
+
+        args = {}
+        args['name'] = account
+        args['domainid'] = self.get_domain(key='id')
+        args['listall'] = True
+        accounts = self.cs.listAccounts(**args)
+        if accounts:
+            self.account = accounts['account'][0]
+            return self._get_by_key(key, self.account)
+        self.module.fail_json(msg="Account '%s' not found" % account)
+
+
+    def get_domain(self, key=None):
+        if self.domain:
+            return self._get_by_key(key, self.domain)
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            return None
+
+        args = {}
+        args['name'] = domain
+        args['listall'] = True
+        domains = self.cs.listDomains(**args)
+        if domains:
+            self.domain = domains['domain'][0]
+            return self._get_by_key(key, self.domain)
+        self.module.fail_json(msg="Domain '%s' not found" % domain)
+
+
+    def get_tags(self, resource=None):
+        existing_tags = self.cs.listTags(resourceid=resource['id'])
+        if existing_tags:
+            return existing_tags['tag']
+        return []
+
+
+    def _delete_tags(self, resource, resource_type, tags):
+        existing_tags = resource['tags']
+        tags_to_delete = []
+        for existing_tag in existing_tags:
+            if existing_tag['key'] in tags:
+                if existing_tag['value'] != tags[key]:
+                    tags_to_delete.append(existing_tag)
+            else:
+                tags_to_delete.append(existing_tag)
+        if tags_to_delete:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_delete
+                self.cs.deleteTags(**args)
+
+
+    def _create_tags(self, resource, resource_type, tags):
+        tags_to_create = []
+        for i, tag_entry in enumerate(tags):
+            tag = {
+                'key':   tag_entry['key'],
+                'value': tag_entry['value'],
+            }
+            tags_to_create.append(tag)
+        if tags_to_create:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_create
+                self.cs.createTags(**args)
+
+
+    def ensure_tags(self, resource, resource_type=None):
+        if not resource_type or not resource:
+            self.module.fail_json(msg="Error: Missing resource or resource_type for tags.")
+
+        if 'tags' in resource:
+            tags = self.module.params.get('tags')
+            if tags is not None:
+                self._delete_tags(resource, resource_type, tags)
+                self._create_tags(resource, resource_type, tags)
+                resource['tags'] = self.get_tags(resource)
+        return resource
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -321,7 +519,12 @@ class AnsibleCloudStack:
         return self._get_by_key(key, self.capabilities)
 
 
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
+        return self.poll_job(job=job, key=key)
+
+
+    def poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
@@ -339,9 +542,6 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
-        self.result = {
-            'changed': False,
-        }
         self.firewall_rule = None
 
 
@@ -353,30 +553,46 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
 
     def get_firewall_rule(self):
         if not self.firewall_rule:
-            cidr = self.module.params.get('cidr')
-            protocol = self.module.params.get('protocol')
-            start_port = self.module.params.get('start_port')
-            end_port = self.get_end_port()
-            icmp_code = self.module.params.get('icmp_code')
-            icmp_type = self.module.params.get('icmp_type')
+            cidr        = self.module.params.get('cidr')
+            protocol    = self.module.params.get('protocol')
+            start_port  = self.module.params.get('start_port')
+            end_port    = self.get_end_port()
+            icmp_code   = self.module.params.get('icmp_code')
+            icmp_type   = self.module.params.get('icmp_type')
+            fw_type     = self.module.params.get('type')
 
             if protocol in ['tcp', 'udp'] and not (start_port and end_port):
-                self.module.fail_json(msg="no start_port or end_port set for protocol '%s'" % protocol)
+                self.module.fail_json(msg="missing required argument for protocol '%s': start_port or end_port" % protocol)
 
             if protocol == 'icmp' and not icmp_type:
-                self.module.fail_json(msg="no icmp_type set")
+                self.module.fail_json(msg="missing required argument for protocol 'icmp': icmp_type")
 
-            args = {}
-            args['ipaddressid'] = self.get_ip_address_id()
-            args['projectid'] = self.get_project_id()
+            if protocol == 'all' and fw_type != 'egress':
+                self.module.fail_json(msg="protocol 'all' could only be used for type 'egress'" )
 
-            firewall_rules = self.cs.listFirewallRules(**args)
+            args                = {}
+            args['account']     = self.get_account('name')
+            args['domainid']    = self.get_domain('id')
+            args['projectid']   = self.get_project('id')
+
+            if fw_type == 'egress':
+                args['networkid'] = self.get_network(key='id')
+                if not args['networkid']:
+                    self.module.fail_json(msg="missing required argument for type egress: network")
+                firewall_rules = self.cs.listEgressFirewallRules(**args)
+            else:
+                args['ipaddressid'] = self.get_ip_address('id')
+                if not args['ipaddressid']:
+                    self.module.fail_json(msg="missing required argument for type ingress: ip_address")
+                firewall_rules = self.cs.listFirewallRules(**args)
+
             if firewall_rules and 'firewallrule' in firewall_rules:
                 for rule in firewall_rules['firewallrule']:
                     type_match = self._type_cidr_match(rule, cidr)
 
                     protocol_match = self._tcp_udp_match(rule, protocol, start_port, end_port) \
-                        or self._icmp_match(rule, protocol, icmp_code, icmp_type)
+                        or self._icmp_match(rule, protocol, icmp_code, icmp_type) \
+                        or self._egress_all_match(rule, protocol, fw_type)
 
                     if type_match and protocol_match:
                         self.firewall_rule = rule
@@ -391,6 +607,12 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
             and end_port == int(rule['endport'])
 
 
+    def _egress_all_match(self, rule, protocol, fw_type):
+        return protocol in ['all'] \
+            and protocol == rule['protocol'] \
+            and fw_type == 'egress'
+
+
     def _icmp_match(self, rule, protocol, icmp_code, icmp_type):
         return protocol == 'icmp' \
            and protocol == rule['protocol'] \
@@ -402,22 +624,58 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
         return cidr == rule['cidrlist']
 
 
+    def get_network(self, key=None, network=None):
+        if not network:
+            network = self.module.params.get('network')
+
+        if not network:
+            return None
+
+        args                = {}
+        args['account']     = self.get_account('name')
+        args['domainid']    = self.get_domain('id')
+        args['projectid']   = self.get_project('id')
+        args['zoneid']      = self.get_zone('id')
+
+        networks = self.cs.listNetworks(**args)
+        if not networks:
+            self.module.fail_json(msg="No networks available")
+
+        for n in networks['network']:
+            if network in [ n['displaytext'], n['name'], n['id'] ]:
+                return self._get_by_key(key, n)
+                break
+        self.module.fail_json(msg="Network '%s' not found" % network)
+
+
     def create_firewall_rule(self):
         firewall_rule = self.get_firewall_rule()
         if not firewall_rule:
             self.result['changed'] = True
-            args = {}
-            args['cidrlist'] = self.module.params.get('cidr')
-            args['protocol'] = self.module.params.get('protocol')
-            args['startport'] = self.module.params.get('start_port')
-            args['endport'] = self.get_end_port()
-            args['icmptype'] = self.module.params.get('icmp_type')
-            args['icmpcode'] = self.module.params.get('icmp_code')
-            args['ipaddressid'] = self.get_ip_address_id()
 
+            args                = {}
+            args['cidrlist']    = self.module.params.get('cidr')
+            args['protocol']    = self.module.params.get('protocol')
+            args['startport']   = self.module.params.get('start_port')
+            args['endport']     = self.get_end_port()
+            args['icmptype']    = self.module.params.get('icmp_type')
+            args['icmpcode']    = self.module.params.get('icmp_code')
+
+            fw_type = self.module.params.get('type')
             if not self.module.check_mode:
-                firewall_rule = self.cs.createFirewallRule(**args)
+                if fw_type == 'egress':
+                    args['networkid'] = self.get_network(key='id')
+                    res = self.cs.createEgressFirewallRule(**args)
+                else:
+                    args['ipaddressid'] = self.get_ip_address('id')
+                    res = self.cs.createFirewallRule(**args)
 
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                     firewall_rule = self._poll_job(res, 'firewallrule')
         return firewall_rule
 
 
@@ -425,39 +683,82 @@ class AnsibleCloudStackFirewall(AnsibleCloudStack):
         firewall_rule = self.get_firewall_rule()
         if firewall_rule:
             self.result['changed'] = True
-            args = {}
+
+            args       = {}
             args['id'] = firewall_rule['id']
 
+            fw_type = self.module.params.get('type')
             if not self.module.check_mode:
-                res = self.cs.deleteFirewallRule(**args)
+                if fw_type == 'egress':
+                    res = self.cs.deleteEgressFirewallRule(**args)
+                else:
+                    res = self.cs.deleteFirewallRule(**args)
 
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                     res = self._poll_job(res, 'firewallrule')
         return firewall_rule
 
 
     def get_result(self, firewall_rule):
+        if firewall_rule:
+            self.result['type'] = self.module.params.get('type')
+            if 'cidrlist' in firewall_rule:
+                self.result['cidr'] = firewall_rule['cidrlist']
+            if 'startport' in firewall_rule:
+                self.result['start_port'] = int(firewall_rule['startport'])
+            if 'endport' in firewall_rule:
+                self.result['end_port'] = int(firewall_rule['endport'])
+            if 'protocol' in firewall_rule:
+                self.result['protocol'] = firewall_rule['protocol']
+            if 'ipaddress' in firewall_rule:
+                self.result['ip_address'] = firewall_rule['ipaddress']
+            if 'icmpcode' in firewall_rule:
+                self.result['icmp_code'] = int(firewall_rule['icmpcode'])
+            if 'icmptype' in firewall_rule:
+                self.result['icmp_type'] = int(firewall_rule['icmptype'])
+            if 'networkid' in firewall_rule:
+                self.result['network'] = self.get_network(key='displaytext', network=firewall_rule['networkid'])
         return self.result
 
 
 def main():
     module = AnsibleModule(
         argument_spec = dict(
-            ip_address = dict(required=True),
+            ip_address = dict(default=None),
+            network = dict(default=None),
             cidr = dict(default='0.0.0.0/0'),
-            protocol = dict(choices=['tcp', 'udp', 'icmp'], default='tcp'),
+            protocol = dict(choices=['tcp', 'udp', 'icmp', 'all'], default='tcp'),
+            type = dict(choices=['ingress', 'egress'], default='ingress'),
             icmp_type = dict(type='int', default=None),
             icmp_code = dict(type='int', default=None),
             start_port = dict(type='int', aliases=['port'], default=None),
             end_port = dict(type='int', default=None),
             state = dict(choices=['present', 'absent'], default='present'),
+            domain = dict(default=None),
+            account = dict(default=None),
             project = dict(default=None),
+            poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
-            api_secret = dict(default=None),
+            api_secret = dict(default=None, no_log=True),
             api_url = dict(default=None),
-            api_http_method = dict(default='get'),
+            api_http_method = dict(choices=['get', 'post'], default='get'),
+            api_timeout = dict(type='int', default=10),
+        ),
+        required_one_of = (
+            ['ip_address', 'network'],
+        ),
+        required_together = (
+            ['icmp_type', 'icmp_code'],
+            ['api_key', 'api_secret', 'api_url'],
         ),
         mutually_exclusive = (
             ['icmp_type', 'start_port'],
             ['icmp_type', 'end_port'],
+            ['ip_address', 'network'],
         ),
         supports_check_mode=True
     )
@@ -478,6 +779,9 @@ def main():
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    except Exception, e:
+        module.fail_json(msg='Exception: %s' % str(e))
 
     module.exit_json(**result)
 

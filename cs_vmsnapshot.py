@@ -22,9 +22,10 @@ DOCUMENTATION = '''
 ---
 module: cs_vmsnapshot
 short_description: Manages VM snapshots on Apache CloudStack based clouds.
-description: Create, remove and revert VM from snapshots.
+description:
+    - Create, remove and revert VM from snapshots.
 version_added: '2.0'
-author: René Moser
+author: '"René Moser (@resmo)" <mail@renemoser.net>'
 options:
   name:
     description:
@@ -61,15 +62,25 @@ options:
     required: false
     default: 'present'
     choices: [ 'present', 'absent', 'revert' ]
+  domain:
+    description:
+      - Domain the VM snapshot is related to.
+    required: false
+    default: null
+  account:
+    description:
+      - Account the VM snapshot is related to.
+    required: false
+    default: null
   poll_async:
     description:
       - Poll async jobs until job has finished.
     required: false
     default: true
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
----
 # Create a VM snapshot of disk and memory before an upgrade
 - local_action:
     module: cs_vmsnapshot
@@ -77,14 +88,12 @@ EXAMPLES = '''
     vm: web-01
     snapshot_memory: yes
 
-
 # Revert a VM to a snapshot after a failed upgrade
 - local_action:
     module: cs_vmsnapshot
     name: Snapshot before upgrade
     vm: web-01
     state: revert
-
 
 # Remove a VM snapshot after successful upgrade
 - local_action:
@@ -132,6 +141,21 @@ description:
   returned: success
   type: string
   sample: snapshot brought to you by Ansible
+domain:
+  description: Domain the the vm snapshot is related to.
+  returned: success
+  type: string
+  sample: example domain
+account:
+  description: Account the vm snapshot is related to.
+  returned: success
+  type: string
+  sample: example account
+project:
+  description: Name of project the vm snapshot is related to.
+  returned: success
+  type: string
+  sample: Production
 '''
 
 try:
@@ -140,15 +164,22 @@ try:
 except ImportError:
     has_lib_cs = False
 
+# import cloudstack common
 class AnsibleCloudStack:
 
     def __init__(self, module):
         if not has_lib_cs:
             module.fail_json(msg="python library cs required: pip install cs")
 
+        self.result = {
+            'changed': False,
+        }
+
         self.module = module
         self._connect()
 
+        self.domain = None
+        self.account = None
         self.project = None
         self.ip_address = None
         self.zone = None
@@ -163,23 +194,41 @@ class AnsibleCloudStack:
         api_secret = self.module.params.get('secret_key')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
+        api_timeout = self.module.params.get('api_timeout')
 
         if api_key and api_secret and api_url:
             self.cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
                 secret=api_secret,
+                timeout=api_timeout,
                 method=api_http_method
                 )
         else:
             self.cs = CloudStack(**read_config())
 
 
+    def get_or_fallback(self, key=None, fallback_key=None):
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
+
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
+        return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
+
+    def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
+                continue;
+
+            # Skip None values
+            if value is None:
                 continue;
 
             if key in current_dict:
@@ -204,11 +253,6 @@ class AnsibleCloudStack:
         return my_dict
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_project_id(self):
-        return self.get_project(key='id')
-
-
     def get_project(self, key=None):
         if self.project:
             return self._get_by_key(key, self.project)
@@ -216,19 +260,16 @@ class AnsibleCloudStack:
         project = self.module.params.get('project')
         if not project:
             return None
-
-        projects = self.cs.listProjects(listall=True)
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_ip_address_id(self):
-        return self.get_ip_address(key='id')
 
 
     def get_ip_address(self, key=None):
@@ -241,6 +282,8 @@ class AnsibleCloudStack:
 
         args = {}
         args['ipaddress'] = ip_address
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -249,11 +292,6 @@ class AnsibleCloudStack:
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_vm_id(self):
-        return self.get_vm(key='id')
 
 
     def get_vm(self, key=None):
@@ -265,6 +303,8 @@ class AnsibleCloudStack:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
         args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         args['zoneid'] = self.get_zone(key='id')
         vms = self.cs.listVirtualMachines(**args)
@@ -274,11 +314,6 @@ class AnsibleCloudStack:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_zone_id(self):
-        return self.get_zone(key='id')
 
 
     def get_zone(self, key=None):
@@ -299,11 +334,6 @@ class AnsibleCloudStack:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_os_type_id(self):
-        return self.get_os_type(key='id')
 
 
     def get_os_type(self, key=None):
@@ -342,6 +372,104 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
+    def get_account(self, key=None):
+        if self.account:
+            return self._get_by_key(key, self.account)
+
+        account = self.module.params.get('account')
+        if not account:
+            return None
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            self.module.fail_json(msg="Account must be specified with Domain")
+
+        args = {}
+        args['name'] = account
+        args['domainid'] = self.get_domain(key='id')
+        args['listall'] = True
+        accounts = self.cs.listAccounts(**args)
+        if accounts:
+            self.account = accounts['account'][0]
+            return self._get_by_key(key, self.account)
+        self.module.fail_json(msg="Account '%s' not found" % account)
+
+
+    def get_domain(self, key=None):
+        if self.domain:
+            return self._get_by_key(key, self.domain)
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            return None
+
+        args = {}
+        args['name'] = domain
+        args['listall'] = True
+        domains = self.cs.listDomains(**args)
+        if domains:
+            self.domain = domains['domain'][0]
+            return self._get_by_key(key, self.domain)
+        self.module.fail_json(msg="Domain '%s' not found" % domain)
+
+
+    def get_tags(self, resource=None):
+        existing_tags = self.cs.listTags(resourceid=resource['id'])
+        if existing_tags:
+            return existing_tags['tag']
+        return []
+
+
+    def _delete_tags(self, resource, resource_type, tags):
+        existing_tags = resource['tags']
+        tags_to_delete = []
+        for existing_tag in existing_tags:
+            if existing_tag['key'] in tags:
+                if existing_tag['value'] != tags[key]:
+                    tags_to_delete.append(existing_tag)
+            else:
+                tags_to_delete.append(existing_tag)
+        if tags_to_delete:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_delete
+                self.cs.deleteTags(**args)
+
+
+    def _create_tags(self, resource, resource_type, tags):
+        tags_to_create = []
+        for i, tag_entry in enumerate(tags):
+            tag = {
+                'key':   tag_entry['key'],
+                'value': tag_entry['value'],
+            }
+            tags_to_create.append(tag)
+        if tags_to_create:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_create
+                self.cs.createTags(**args)
+
+
+    def ensure_tags(self, resource, resource_type=None):
+        if not resource_type or not resource:
+            self.module.fail_json(msg="Error: Missing resource or resource_type for tags.")
+
+        if 'tags' in resource:
+            tags = self.module.params.get('tags')
+            if tags is not None:
+                self._delete_tags(resource, resource_type, tags)
+                self._create_tags(resource, resource_type, tags)
+                resource['tags'] = self.get_tags(resource)
+        return resource
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -350,7 +478,12 @@ class AnsibleCloudStack:
         return self._get_by_key(key, self.capabilities)
 
 
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
+        return self.poll_job(job=job, key=key)
+
+
+    def poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
@@ -368,16 +501,15 @@ class AnsibleCloudStackVmSnapshot(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
-        self.result = {
-            'changed': False,
-        }
 
 
     def get_snapshot(self):
-        args = {}
-        args['virtualmachineid'] = self.get_vm_id()
-        args['projectid'] = self.get_project_id()
-        args['name'] = self.module.params.get('name')
+        args                        = {}
+        args['virtualmachineid']    = self.get_vm('id')
+        args['account']             = self.get_account('name')
+        args['domainid']            = self.get_domain('id')
+        args['projectid']           = self.get_project('id')
+        args['name']                = self.module.params.get('name')
 
         snapshots = self.cs.listVMSnapshot(**args)
         if snapshots:
@@ -390,11 +522,11 @@ class AnsibleCloudStackVmSnapshot(AnsibleCloudStack):
         if not snapshot:
             self.result['changed'] = True
 
-            args = {}
-            args['virtualmachineid'] = self.get_vm_id()
-            args['name'] = self.module.params.get('name')
-            args['description'] = self.module.params.get('description')
-            args['snapshotmemory'] = self.module.params.get('snapshot_memory')
+            args                        = {}
+            args['virtualmachineid']    = self.get_vm('id')
+            args['name']                = self.module.params.get('name')
+            args['description']         = self.module.params.get('description')
+            args['snapshotmemory']      = self.module.params.get('snapshot_memory')
 
             if not self.module.check_mode:
                 res = self.cs.createVMSnapshot(**args)
@@ -460,6 +592,12 @@ class AnsibleCloudStackVmSnapshot(AnsibleCloudStack):
                 self.result['name'] = snapshot['name']
             if 'description' in snapshot:
                 self.result['description'] = snapshot['description']
+            if 'domain' in snapshot:
+                self.result['domain'] = snapshot['domain']
+            if 'account' in snapshot:
+                self.result['account'] = snapshot['account']
+            if 'project' in snapshot:
+                self.result['project'] = snapshot['project']
         return self.result
 
 
@@ -469,15 +607,22 @@ def main():
             name = dict(required=True, aliases=['displayname']),
             vm = dict(required=True),
             description = dict(default=None),
-            project = dict(default=None),
             zone = dict(default=None),
             snapshot_memory = dict(choices=BOOLEANS, default=False),
             state = dict(choices=['present', 'absent', 'revert'], default='present'),
+            domain = dict(default=None),
+            account = dict(default=None),
+            project = dict(default=None),
             poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
-            api_secret = dict(default=None),
+            api_secret = dict(default=None, no_log=True),
             api_url = dict(default=None),
-            api_http_method = dict(default='get'),
+            api_http_method = dict(choices=['get', 'post'], default='get'),
+            api_timeout = dict(type='int', default=10),
+        ),
+        required_together = (
+            ['icmp_type', 'icmp_code'],
+            ['api_key', 'api_secret', 'api_url'],
         ),
         supports_check_mode=True
     )
@@ -500,6 +645,9 @@ def main():
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    except Exception, e:
+        module.fail_json(msg='Exception: %s' % str(e))
 
     module.exit_json(**result)
 

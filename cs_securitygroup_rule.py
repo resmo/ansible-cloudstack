@@ -22,9 +22,10 @@ DOCUMENTATION = '''
 ---
 module: cs_securitygroup_rule
 short_description: Manages security group rules on Apache CloudStack based clouds.
-description: Add and remove security group rules.
+description:
+    - Add and remove security group rules.
 version_added: '2.0'
-author: René Moser
+author: '"René Moser (@resmo)" <mail@renemoser.net>'
 options:
   security_group:
     description:
@@ -53,28 +54,28 @@ options:
       - CIDR (full notation) to be used for security group rule.
     required: false
     default: '0.0.0.0/0'
-  user_security_group
+  user_security_group:
     description:
       - Security group this rule is based of.
     required: false
     default: null
-  start_port
+  start_port:
     description:
       - Start port for this rule. Required if C(protocol=tcp) or C(protocol=udp).
     required: false
     default: null
     aliases: [ 'port' ]
-  end_port
+  end_port:
     description:
       - End port for this rule. Required if C(protocol=tcp) or C(protocol=udp), but C(start_port) will be used if not set.
     required: false
     default: null
-  icmp_type
+  icmp_type:
     description:
       - Type of the icmp message being sent. Required if C(protocol=icmp).
     required: false
     default: null
-  icmp_code
+  icmp_code:
     description:
       - Error code for this icmp message. Required if C(protocol=icmp).
     required: false
@@ -89,6 +90,7 @@ options:
       - Poll async jobs until job has finished.
     required: false
     default: true
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
@@ -99,7 +101,6 @@ EXAMPLES = '''
     security_group: default
     port: 80
     cidr: 1.2.3.4/32
-
 
 # Allow tcp/udp outbound added to security group 'default'
 - local_action:
@@ -113,7 +114,6 @@ EXAMPLES = '''
   - tcp
   - udp
 
-
 # Allow inbound icmp from 0.0.0.0/0 added to security group 'default'
 - local_action:
     module: cs_securitygroup_rule
@@ -122,14 +122,12 @@ EXAMPLES = '''
     icmp_code: -1
     icmp_type: -1
 
-
 # Remove rule inbound port 80/tcp from 0.0.0.0/0 from security group 'default'
 - local_action:
     module: cs_securitygroup_rule
     security_group: default
     port: 80
     state: absent
-
 
 # Allow inbound port 80/tcp from security group web added to security group 'default'
 - local_action:
@@ -184,15 +182,22 @@ try:
 except ImportError:
     has_lib_cs = False
 
+# import cloudstack common
 class AnsibleCloudStack:
 
     def __init__(self, module):
         if not has_lib_cs:
             module.fail_json(msg="python library cs required: pip install cs")
 
+        self.result = {
+            'changed': False,
+        }
+
         self.module = module
         self._connect()
 
+        self.domain = None
+        self.account = None
         self.project = None
         self.ip_address = None
         self.zone = None
@@ -207,23 +212,41 @@ class AnsibleCloudStack:
         api_secret = self.module.params.get('secret_key')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
+        api_timeout = self.module.params.get('api_timeout')
 
         if api_key and api_secret and api_url:
             self.cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
                 secret=api_secret,
+                timeout=api_timeout,
                 method=api_http_method
                 )
         else:
             self.cs = CloudStack(**read_config())
 
 
+    def get_or_fallback(self, key=None, fallback_key=None):
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
+
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
+        return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
+
+    def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
+                continue;
+
+            # Skip None values
+            if value is None:
                 continue;
 
             if key in current_dict:
@@ -248,11 +271,6 @@ class AnsibleCloudStack:
         return my_dict
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_project_id(self):
-        return self.get_project(key='id')
-
-
     def get_project(self, key=None):
         if self.project:
             return self._get_by_key(key, self.project)
@@ -260,19 +278,16 @@ class AnsibleCloudStack:
         project = self.module.params.get('project')
         if not project:
             return None
-
-        projects = self.cs.listProjects(listall=True)
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_ip_address_id(self):
-        return self.get_ip_address(key='id')
 
 
     def get_ip_address(self, key=None):
@@ -285,6 +300,8 @@ class AnsibleCloudStack:
 
         args = {}
         args['ipaddress'] = ip_address
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -293,11 +310,6 @@ class AnsibleCloudStack:
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_vm_id(self):
-        return self.get_vm(key='id')
 
 
     def get_vm(self, key=None):
@@ -309,6 +321,8 @@ class AnsibleCloudStack:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
         args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         args['zoneid'] = self.get_zone(key='id')
         vms = self.cs.listVirtualMachines(**args)
@@ -318,11 +332,6 @@ class AnsibleCloudStack:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_zone_id(self):
-        return self.get_zone(key='id')
 
 
     def get_zone(self, key=None):
@@ -343,11 +352,6 @@ class AnsibleCloudStack:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_os_type_id(self):
-        return self.get_os_type(key='id')
 
 
     def get_os_type(self, key=None):
@@ -386,6 +390,104 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
+    def get_account(self, key=None):
+        if self.account:
+            return self._get_by_key(key, self.account)
+
+        account = self.module.params.get('account')
+        if not account:
+            return None
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            self.module.fail_json(msg="Account must be specified with Domain")
+
+        args = {}
+        args['name'] = account
+        args['domainid'] = self.get_domain(key='id')
+        args['listall'] = True
+        accounts = self.cs.listAccounts(**args)
+        if accounts:
+            self.account = accounts['account'][0]
+            return self._get_by_key(key, self.account)
+        self.module.fail_json(msg="Account '%s' not found" % account)
+
+
+    def get_domain(self, key=None):
+        if self.domain:
+            return self._get_by_key(key, self.domain)
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            return None
+
+        args = {}
+        args['name'] = domain
+        args['listall'] = True
+        domains = self.cs.listDomains(**args)
+        if domains:
+            self.domain = domains['domain'][0]
+            return self._get_by_key(key, self.domain)
+        self.module.fail_json(msg="Domain '%s' not found" % domain)
+
+
+    def get_tags(self, resource=None):
+        existing_tags = self.cs.listTags(resourceid=resource['id'])
+        if existing_tags:
+            return existing_tags['tag']
+        return []
+
+
+    def _delete_tags(self, resource, resource_type, tags):
+        existing_tags = resource['tags']
+        tags_to_delete = []
+        for existing_tag in existing_tags:
+            if existing_tag['key'] in tags:
+                if existing_tag['value'] != tags[key]:
+                    tags_to_delete.append(existing_tag)
+            else:
+                tags_to_delete.append(existing_tag)
+        if tags_to_delete:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_delete
+                self.cs.deleteTags(**args)
+
+
+    def _create_tags(self, resource, resource_type, tags):
+        tags_to_create = []
+        for i, tag_entry in enumerate(tags):
+            tag = {
+                'key':   tag_entry['key'],
+                'value': tag_entry['value'],
+            }
+            tags_to_create.append(tag)
+        if tags_to_create:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_create
+                self.cs.createTags(**args)
+
+
+    def ensure_tags(self, resource, resource_type=None):
+        if not resource_type or not resource:
+            self.module.fail_json(msg="Error: Missing resource or resource_type for tags.")
+
+        if 'tags' in resource:
+            tags = self.module.params.get('tags')
+            if tags is not None:
+                self._delete_tags(resource, resource_type, tags)
+                self._create_tags(resource, resource_type, tags)
+                resource['tags'] = self.get_tags(resource)
+        return resource
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -394,7 +496,12 @@ class AnsibleCloudStack:
         return self._get_by_key(key, self.capabilities)
 
 
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
+        return self.poll_job(job=job, key=key)
+
+
+    def poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
@@ -412,9 +519,6 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
-        self.result = {
-            'changed': False,
-        }
 
 
     def _tcp_udp_match(self, rule, protocol, start_port, end_port):
@@ -447,17 +551,20 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
                and cidr == rule['cidr']
 
 
+    def get_end_port(self):
+        if self.module.params.get('end_port'):
+            return self.module.params.get('end_port')
+        return self.module.params.get('start_port')
+
+
     def _get_rule(self, rules):
         user_security_group_name = self.module.params.get('user_security_group')
         cidr                     = self.module.params.get('cidr')
         protocol                 = self.module.params.get('protocol')
         start_port               = self.module.params.get('start_port')
-        end_port                 = self.module.params.get('end_port')
+        end_port                 = self.get_end_port()
         icmp_code                = self.module.params.get('icmp_code')
         icmp_type                = self.module.params.get('icmp_type')
-
-        if not end_port:
-            end_port = start_port
 
         if protocol in ['tcp', 'udp'] and not (start_port and end_port):
             self.module.fail_json(msg="no start_port or end_port set for protocol '%s'" % protocol)
@@ -486,7 +593,7 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
             security_group_name = self.module.params.get('security_group')
         args = {}
         args['securitygroupname'] =  security_group_name
-        args['projectid'] = self.get_project_id()
+        args['projectid'] = self.get_project('id')
         sgs = self.cs.listSecurityGroups(**args)
         if not sgs or 'securitygroup' not in sgs:
                 self.module.fail_json(msg="security group '%s' not found" % security_group_name)
@@ -513,14 +620,11 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
 
         args['protocol']        = self.module.params.get('protocol')
         args['startport']       = self.module.params.get('start_port')
-        args['endport']         = self.module.params.get('end_port')
+        args['endport']         = self.get_end_port()
         args['icmptype']        = self.module.params.get('icmp_type')
         args['icmpcode']        = self.module.params.get('icmp_code')
-        args['projectid']       = self.get_project_id()
+        args['projectid']       = self.get_project('id')
         args['securitygroupid'] = security_group['id']
-
-        if not args['endport']:
-            args['endport'] = args['startport']
 
         rule = None
         res  = None
@@ -545,7 +649,9 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
         poll_async = self.module.params.get('poll_async')
         if res and poll_async:
             security_group = self._poll_job(res, 'securitygroup')
-            rule = security_group[sg_type + "rule"][0]
+            key = sg_type + "rule" # ingressrule / egressrule
+            if key in security_group:
+                rule = security_group[key][0]
         return rule
 
 
@@ -617,9 +723,14 @@ def main():
             project = dict(default=None),
             poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
-            api_secret = dict(default=None),
+            api_secret = dict(default=None, no_log=True),
             api_url = dict(default=None),
-            api_http_method = dict(default='get'),
+            api_http_method = dict(choices=['get', 'post'], default='get'),
+            api_timeout = dict(type='int', default=10),
+        ),
+        required_together = (
+            ['icmp_type', 'icmp_code'],
+            ['api_key', 'api_secret', 'api_url'],
         ),
         mutually_exclusive = (
             ['icmp_type', 'start_port'],
@@ -646,6 +757,9 @@ def main():
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    except Exception, e:
+        module.fail_json(msg='Exception: %s' % str(e))
 
     module.exit_json(**result)
 
