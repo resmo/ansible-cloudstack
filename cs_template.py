@@ -21,54 +21,69 @@
 DOCUMENTATION = '''
 ---
 module: cs_template
-short_description: Manages template on Apache CloudStack based clouds.
-description: Register from url, create from VM and delete templates.
+short_description: Manages templates on Apache CloudStack based clouds.
+description:
+  - Register a template from URL, create a template from a ROOT volume of a stopped VM or its snapshot and delete templates.
 version_added: '2.0'
-author: René Moser
+author: '"René Moser (@resmo)" <mail@renemoser.net>'
 options:
   name:
     description:
-      - Name of the Template.
+      - Name of the template.
     required: true
   url:
     description:
-      - URL of where the template is hosted. Mutually exclusive with C(vm).
+      - URL of where the template is hosted.
+      - Mutually exclusive with C(vm).
     required: false
     default: null
   vm:
     description:
-      - VM the template is created from. Mutually exclusive with C(url).
+      - VM name the template will be created from its volume or alternatively from a snapshot.
+      - VM must be in stopped state if created from its volume.
+      - Mutually exclusive with C(url).
+    required: false
+    default: null
+  snapshot:
+    description:
+      - Name of the snapshot, created from the VM ROOT volume, the template will be created from.
+      - C(vm) is required together with this argument.
     required: false
     default: null
   os_type:
     description:
-      - OS Type that best represents the OS of this template.
+      - OS type that best represents the OS of this template.
     required: false
     default: null
   checksum:
     description:
-      - The MD5 checksum value of this template. If set, we search by checksum instead of name.
+      - The MD5 checksum value of this template.
+      - If set, we search by checksum instead of name.
     required: false
     default: false
   is_ready:
     description:
-      - This flag is used for searching existing templates. If set to C(true), it will only list template ready for deployment e.g. successfully downloaded and installed. Recommended to set it to C(false).
+      - This flag is used for searching existing templates.
+      - If set to C(true), it will only list template ready for deployment e.g. successfully downloaded and installed.
+      - Recommended to set it to C(false).
     required: false
     default: false
   is_public:
     description:
-      - Register the template to be publicly available to all users. Only used if C(state) is present.
+      - Register the template to be publicly available to all users.
+      - Only used if C(state) is present.
     required: false
     default: false
   is_featured:
     description:
-      - Register the template to be featured. Only used if C(state) is present.
+      - Register the template to be featured.
+      - Only used if C(state) is present.
     required: false
     default: false
   is_dynamically_scalable:
     description:
-      - Register the template having XS/VMWare tools installed in order to support 
-        dynamic scaling of VM cpu/memory. Only used if C(state) is present.
+      - Register the template having XS/VMWare tools installed in order to support dynamic scaling of VM CPU/memory.
+      - Only used if C(state) is present.
     required: false
     default: false
   project:
@@ -78,8 +93,8 @@ options:
     default: null
   zone:
     description:
-      - Name of the zone you wish the template to be registered or deleted from. If
-        not specified, first found zone will be used.
+      - Name of the zone you wish the template to be registered or deleted from.
+      - If not specified, first found zone will be used.
     required: false
     default: null
   template_filter:
@@ -87,11 +102,14 @@ options:
       - Name of the filter used to search for the template.
     required: false
     default: 'self'
-    choices: [ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]
+    choices: [ 'featured', 'self', 'selfexecutable', 'sharedexecutable', 'executable', 'community' ]
   hypervisor:
     description:
-      - the target hypervisor for the template. If no hypervisor is provided, first found is used.
+      - Name the hypervisor to be used for creating the new template.
+      - Relevant when using C(state=present).
     required: false
+    default: none
+    choices: [ 'KVM', 'VMware', 'BareMetal', 'XenServer', 'LXC', 'HyperV', 'UCS', 'OVM' ]
   requires_hvm:
     description:
       - true if this template requires HVM.
@@ -99,7 +117,7 @@ options:
     default: false
   password_enabled:
     description:
-      - true if the template supports the password reset feature.
+      - True if the template supports the password reset feature.
     required: false
     default: false
   template_tag:
@@ -109,22 +127,25 @@ options:
     default: null
   sshkey_enabled:
     description:
-      - true if the template supports the sshkey upload feature.
+      - True if the template supports the sshkey upload feature.
     required: false
     default: false
   is_routing:
     description:
-      -  true if the template type is routing i.e., if template is used to deploy router. Only considered if C(vm=null).
+      - True if the template type is routing i.e., if template is used to deploy router.
+      - Only considered if C(url) is used.
     required: false
     default: false
   format:
-    description: 
-      - the format for the template. Required if C(vm=null).
+    description:
+      - The format for the template.
+      - Relevant when using C(state=present).
     required: false
     default: null
+    choices: [ 'QCOW2', 'RAW', 'VHD', 'OVA' ]
   is_extractable:
     description:
-      - true if the template or its derivatives are extractable.
+      - True if the template or its derivatives are extractable.
     required: false
     default: false
   details:
@@ -148,10 +169,52 @@ options:
     required: false
     default: 'present'
     choices: [ 'present', 'absent' ]
+  poll_async:
+    description:
+      - Poll async jobs until job has finished.
+    required: false
+    default: true
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
----
+# Register a systemvm template
+- local_action:
+    module: cs_template
+    name: systemvm-4.5
+    url: "http://packages.shapeblue.com/systemvmtemplate/4.5/systemvm64template-4.5-vmware.ova"
+    hypervisor: VMware
+    format: OVA
+    zone: tokio-ix
+    os_type: Debian GNU/Linux 7(64-bit)
+    is_routing: yes
+
+# Create a template from a stopped virtual machine's volume
+- local_action:
+    module: cs_template
+    name: debian-base-template
+    vm: debian-base-vm
+    os_type: Debian GNU/Linux 7(64-bit)
+    zone: tokio-ix
+    password_enabled: yes
+    is_public: yes
+
+# Create a template from a virtual machine's root volume snapshot
+- local_action:
+    module: cs_template
+    name: debian-base-template
+    vm: debian-base-vm
+    snapshot: ROOT-233_2015061509114
+    os_type: Debian GNU/Linux 7(64-bit)
+    zone: tokio-ix
+    password_enabled: yes
+    is_public: yes
+
+# Remove a template
+- local_action:
+    module: cs_template
+    name: systemvm-4.2
+    state: absent
 '''
 
 RETURN = '''
@@ -162,15 +225,10 @@ name:
   type: string
   sample: Debian 7 64-bit
 displaytext:
-  description: Text to be displayed of the template.
+  description: Displaytext of the template.
   returned: success
   type: string
   sample: Debian 7.7 64-bit minimal 2015-03-19
-zone:
-  description: Name of zone the template is registered in.
-  returned: success
-  type: string
-  sample: zuerich
 checksum:
   description: MD5 checksum of the template.
   returned: success
@@ -180,17 +238,97 @@ status:
   description: Status of the template.
   returned: success
   type: string
-  sample: Successfully Installed
+  sample: Download Complete
 is_ready:
   description: True if the template is ready to be deployed from.
   returned: success
   type: boolean
   sample: true
+is_public:
+  description: True if the template is public.
+  returned: success
+  type: boolean
+  sample: true
+is_featured:
+  description: True if the template is featured.
+  returned: success
+  type: boolean
+  sample: true
+is_extractable:
+  description: True if the template is extractable.
+  returned: success
+  type: boolean
+  sample: true
+format:
+  description: Format of the template.
+  returned: success
+  type: string
+  sample: OVA
+os_type:
+  description: Typo of the OS.
+  returned: success
+  type: string
+  sample: CentOS 6.5 (64-bit)
+password_enabled:
+  description: True if the reset password feature is enabled, false otherwise.
+  returned: success
+  type: boolean
+  sample: false
+sshkey_enabled:
+  description: true if template is sshkey enabled, false otherwise.
+  returned: success
+  type: boolean
+  sample: false
+cross_zones:
+  description: true if the template is managed across all zones, false otherwise.
+  returned: success
+  type: boolean
+  sample: false
+template_type:
+  description: Type of the template.
+  returned: success
+  type: string
+  sample: USER
 created:
   description: Date of registering.
   returned: success
   type: string
   sample: 2015-03-29T14:57:06+0200
+template_tag:
+  description: Template tag related to this template.
+  returned: success
+  type: string
+  sample: special
+hypervisor:
+  description: Hypervisor related to this template.
+  returned: success
+  type: string
+  sample: VMware
+tags:
+  description: List of resource tags associated with the template.
+  returned: success
+  type: dict
+  sample: '[ { "key": "foo", "value": "bar" } ]'
+zone:
+  description: Name of zone the template is registered in.
+  returned: success
+  type: string
+  sample: zuerich
+domain:
+  description: Domain the template is related to.
+  returned: success
+  type: string
+  sample: example domain
+account:
+  description: Account the template is related to.
+  returned: success
+  type: string
+  sample: example account
+project:
+  description: Name of project the template is related to.
+  returned: success
+  type: string
+  sample: Production
 '''
 
 try:
@@ -199,16 +337,22 @@ try:
 except ImportError:
     has_lib_cs = False
 
-
+# import cloudstack common
 class AnsibleCloudStack:
 
     def __init__(self, module):
         if not has_lib_cs:
             module.fail_json(msg="python library cs required: pip install cs")
 
+        self.result = {
+            'changed': False,
+        }
+
         self.module = module
         self._connect()
 
+        self.domain = None
+        self.account = None
         self.project = None
         self.ip_address = None
         self.zone = None
@@ -223,23 +367,41 @@ class AnsibleCloudStack:
         api_secret = self.module.params.get('secret_key')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
+        api_timeout = self.module.params.get('api_timeout')
 
         if api_key and api_secret and api_url:
             self.cs = CloudStack(
                 endpoint=api_url,
                 key=api_key,
                 secret=api_secret,
+                timeout=api_timeout,
                 method=api_http_method
                 )
         else:
             self.cs = CloudStack(**read_config())
 
 
+    def get_or_fallback(self, key=None, fallback_key=None):
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
+
+
+    # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
+        return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
+
+    def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
+                continue;
+
+            # Skip None values
+            if value is None:
                 continue;
 
             if key in current_dict:
@@ -264,11 +426,6 @@ class AnsibleCloudStack:
         return my_dict
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_project_id(self):
-        return self.get_project(key='id')
-
-
     def get_project(self, key=None):
         if self.project:
             return self._get_by_key(key, self.project)
@@ -276,19 +433,16 @@ class AnsibleCloudStack:
         project = self.module.params.get('project')
         if not project:
             return None
-
-        projects = self.cs.listProjects(listall=True)
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project in [ p['name'], p['displaytext'], p['id'] ]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_ip_address_id(self):
-        return self.get_ip_address(key='id')
 
 
     def get_ip_address(self, key=None):
@@ -301,6 +455,8 @@ class AnsibleCloudStack:
 
         args = {}
         args['ipaddress'] = ip_address
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
@@ -309,11 +465,6 @@ class AnsibleCloudStack:
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_vm_id(self):
-        return self.get_vm(key='id')
 
 
     def get_vm(self, key=None):
@@ -325,6 +476,8 @@ class AnsibleCloudStack:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
         args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
         args['projectid'] = self.get_project(key='id')
         args['zoneid'] = self.get_zone(key='id')
         vms = self.cs.listVirtualMachines(**args)
@@ -334,11 +487,6 @@ class AnsibleCloudStack:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_zone_id(self):
-        return self.get_zone(key='id')
 
 
     def get_zone(self, key=None):
@@ -359,11 +507,6 @@ class AnsibleCloudStack:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
-
-
-    # TODO: for backward compatibility only, remove if not used anymore
-    def get_os_type_id(self):
-        return self.get_os_type(key='id')
 
 
     def get_os_type(self, key=None):
@@ -402,6 +545,104 @@ class AnsibleCloudStack:
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
 
 
+    def get_account(self, key=None):
+        if self.account:
+            return self._get_by_key(key, self.account)
+
+        account = self.module.params.get('account')
+        if not account:
+            return None
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            self.module.fail_json(msg="Account must be specified with Domain")
+
+        args = {}
+        args['name'] = account
+        args['domainid'] = self.get_domain(key='id')
+        args['listall'] = True
+        accounts = self.cs.listAccounts(**args)
+        if accounts:
+            self.account = accounts['account'][0]
+            return self._get_by_key(key, self.account)
+        self.module.fail_json(msg="Account '%s' not found" % account)
+
+
+    def get_domain(self, key=None):
+        if self.domain:
+            return self._get_by_key(key, self.domain)
+
+        domain = self.module.params.get('domain')
+        if not domain:
+            return None
+
+        args = {}
+        args['name'] = domain
+        args['listall'] = True
+        domains = self.cs.listDomains(**args)
+        if domains:
+            self.domain = domains['domain'][0]
+            return self._get_by_key(key, self.domain)
+        self.module.fail_json(msg="Domain '%s' not found" % domain)
+
+
+    def get_tags(self, resource=None):
+        existing_tags = self.cs.listTags(resourceid=resource['id'])
+        if existing_tags:
+            return existing_tags['tag']
+        return []
+
+
+    def _delete_tags(self, resource, resource_type, tags):
+        existing_tags = resource['tags']
+        tags_to_delete = []
+        for existing_tag in existing_tags:
+            if existing_tag['key'] in tags:
+                if existing_tag['value'] != tags[key]:
+                    tags_to_delete.append(existing_tag)
+            else:
+                tags_to_delete.append(existing_tag)
+        if tags_to_delete:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_delete
+                self.cs.deleteTags(**args)
+
+
+    def _create_tags(self, resource, resource_type, tags):
+        tags_to_create = []
+        for i, tag_entry in enumerate(tags):
+            tag = {
+                'key':   tag_entry['key'],
+                'value': tag_entry['value'],
+            }
+            tags_to_create.append(tag)
+        if tags_to_create:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                args = {}
+                args['resourceids']  = resource['id']
+                args['resourcetype'] = resource_type
+                args['tags']         = tags_to_create
+                self.cs.createTags(**args)
+
+
+    def ensure_tags(self, resource, resource_type=None):
+        if not resource_type or not resource:
+            self.module.fail_json(msg="Error: Missing resource or resource_type for tags.")
+
+        if 'tags' in resource:
+            tags = self.module.params.get('tags')
+            if tags is not None:
+                self._delete_tags(resource, resource_type, tags)
+                self._create_tags(resource, resource_type, tags)
+                resource['tags'] = self.get_tags(resource)
+        return resource
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -410,7 +651,12 @@ class AnsibleCloudStack:
         return self._get_by_key(key, self.capabilities)
 
 
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
+        return self.poll_job(job=job, key=key)
+
+
+    def poll_job(self, job=None, key=None):
         if 'jobid' in job:
             while True:
                 res = self.cs.queryAsyncJobResult(jobid=job['jobid'])
@@ -428,51 +674,83 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
 
     def __init__(self, module):
         AnsibleCloudStack.__init__(self, module)
-        self.result = {
-            'changed': False,
-        }
 
 
-    def _get_template_args(self, args):
-            args = {}
-            args['displaytext'] = self.module.params.get('displaytext')
-            args['name'] = self.module.params.get('name')
-            args['ostypeid'] = self.get_os_type_id()
-            args['bits'] = self.module.params.get('bits')
-            args['isdynamicallyscalable'] = self.module.params.get('is_dynamically_scalable')
-            args['isextractable'] = self.module.params.get('isextractable')
-            args['isfeatured'] = self.module.params.get('is_featured')
-            args['ispublic'] = self.module.params.get('is_public')
-            args['passwordenabled'] = self.module.params.get('password_enabled')
-            args['requireshvm'] = self.module.params.get('requires_hvm')
-            args['templatetag'] = self.module.params.get('template_tag')
+    def _get_args(self):
+        args                            = {}
+        args['name']                    = self.module.params.get('name')
+        args['displaytext']             = self.module.params.get('displaytext')
+        args['bits']                    = self.module.params.get('bits')
+        args['isdynamicallyscalable']   = self.module.params.get('is_dynamically_scalable')
+        args['isextractable']           = self.module.params.get('is_extractable')
+        args['isfeatured']              = self.module.params.get('is_featured')
+        args['ispublic']                = self.module.params.get('is_public')
+        args['passwordenabled']         = self.module.params.get('password_enabled')
+        args['requireshvm']             = self.module.params.get('requires_hvm')
+        args['templatetag']             = self.module.params.get('template_tag')
+        args['ostypeid']                = self.get_os_type(key='id')
+
+        if not args['ostypeid']:
+            self.module.fail_json(msg="Missing required arguments: os_type")
+
+        if not args['displaytext']:
+            args['displaytext'] = self.module.params.get('name')
         return args
 
 
-    def get_vm(self):
-        vm = self.module.params.get('vm')
-        if not vm:
-            self.module.fail_json(msg="Virtual machine param 'vm' is required")
+    def get_root_volume(self, key=None):
+        args                        = {}
+        args['account']             = self.get_account(key='name')
+        args['domainid']            = self.get_domain(key='id')
+        args['projectid']           = self.get_project(key='id')
+        args['virtualmachineid']    = self.get_vm(key='id')
+        args['type']                = "ROOT"
 
-        args = {}
-        args['projectid'] = self.get_project_id()
-        vms = self.cs.listVirtualMachines(**args)
-        if vms:
-            for v in vms['virtualmachine']:
-                if vm in [ v['displayname'], v['name'], v['id'] ]:
-                    return vm
-        self.module.fail_json(msg="Virtual machine '%s' not found" % vm
+        volumes = self.cs.listVolumes(**args)
+        if volumes:
+            return self._get_by_key(key, volumes['volume'][0])
+        self.module.fail_json(msg="Root volume for '%s' not found" % self.get_vm('name'))
+
+
+    def get_snapshot(self, key=None):
+        snapshot = self.module.params.get('snapshot')
+        if not snapshot:
+            return None
+
+        args                = {}
+        args['account']     = self.get_account(key='name')
+        args['domainid']    = self.get_domain(key='id')
+        args['projectid']   = self.get_project(key='id')
+        args['volumeid']    = self.get_root_volume('id')
+        snapshots = self.cs.listSnapshots(**args)
+        if snapshots:
+            for s in snapshots['snapshot']:
+                if snapshot in [ s['name'], s['id'] ]:
+                    return self._get_by_key(key, s)
+        self.module.fail_json(msg="Snapshot '%s' not found" % snapshot)
 
 
     def create_template(self):
         template = self.get_template()
         if not template:
             self.result['changed'] = True
-            args = self._get_template_args(args)
-            vm = self.get_vm()
-            args['volumeid'] = vm['rootdeviceid']
+
+            args = self._get_args()
+            snapshot_id = self.get_snapshot(key='id')
+            if snapshot_id:
+                args['snapshotid'] = snapshot_id
+            else:
+                args['volumeid']  = self.get_root_volume('id')
+
             if not self.module.check_mode:
                 template = self.cs.createTemplate(**args)
+
+                if 'errortext' in template:
+                    self.module.fail_json(msg="Failed: '%s'" % template['errortext'])
+
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                    template = self._poll_job(template, 'template')
         return template
 
 
@@ -480,31 +758,35 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
         template = self.get_template()
         if not template:
             self.result['changed'] = True
-            args = self._get_template_args(args)
-            args['url'] = self.module.params.get('url')
-            if not args['url']:
-                self.module.fail_json(msg="URL is requried.")
-            args['format'] = self.module.params.get('format')
-            if not args['format']:
-                self.module.fail_json(msg="Format is requried.")
-            args['projectid'] = self.get_project_id()
-            args['zoneid'] = self.get_zone_id()
-            args['hypervisor'] = self.get_hypervisor()
-            args['checksum'] = self.module.params.get('checksum')
-            args['isextractable'] = self.module.params.get('is_extractable')
-            args['isrouting'] = self.module.params.get('is_routing')
-            args['sshkeyenabled'] = self.module.params.get('sshkey_enabled')
+            args                    = self._get_args()
+            args['url']             = self.module.params.get('url')
+            args['format']          = self.module.params.get('format')
+            args['checksum']        = self.module.params.get('checksum')
+            args['isextractable']   = self.module.params.get('is_extractable')
+            args['isrouting']       = self.module.params.get('is_routing')
+            args['sshkeyenabled']   = self.module.params.get('sshkey_enabled')
+            args['hypervisor']      = self.get_hypervisor()
+            args['zoneid']          = self.get_zone(key='id')
+            args['domainid']        = self.get_domain(key='id')
+            args['account']         = self.get_account(key='name')
+            args['projectid']       = self.get_project(key='id')
+
             if not self.module.check_mode:
-                template = self.cs.registerTemplate(**args)
+                res = self.cs.registerTemplate(**args)
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                template = res['template']
         return template
 
 
     def get_template(self):
-        args = {}
-        args['isready'] = self.module.params.get('is_ready')
-        args['projectid'] = self.get_project_id()
-        args['zoneid'] = self.get_zone_id()
-        args['templatefilter'] = self.module.params.get('template_filter')
+        args                    = {}
+        args['isready']         = self.module.params.get('is_ready')
+        args['templatefilter']  = self.module.params.get('template_filter')
+        args['zoneid']          = self.get_zone(key='id')
+        args['domainid']        = self.get_domain(key='id')
+        args['account']         = self.get_account(key='name')
+        args['projectid']       = self.get_project(key='id')
 
         # if checksum is set, we only look on that.
         checksum = self.module.params.get('checksum')
@@ -527,28 +809,75 @@ class AnsibleCloudStackTemplate(AnsibleCloudStack):
         template = self.get_template()
         if template:
             self.result['changed'] = True
-            args = {}
-            args['id'] = template['id']
-            args['zoneid'] = self.get_zone_id()
+
+            args            = {}
+            args['id']      = template['id']
+            args['zoneid']  = self.get_zone(key='id')
+
             if not self.module.check_mode:
                 res = self.cs.deleteTemplate(**args)
+
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                    res = self._poll_job(res, 'template')
         return template
 
 
     def get_result(self, template):
         if template:
             if 'displaytext' in template:
-                result['displaytext'] = template['displaytext']
+                self.result['displaytext'] = template['displaytext']
             if 'name' in template:
-                result['name'] = template['name']
+                self.result['name'] = template['name']
+            if 'hypervisor' in template:
+                self.result['hypervisor'] = template['hypervisor']
             if 'zonename' in template:
-                result['zone'] = template['zonename']
+                self.result['zone'] = template['zonename']
+            if 'checksum' in template:
+                self.result['checksum'] = template['checksum']
+            if 'format' in template:
+                self.result['format'] = template['format']
+            if 'isready' in template:
+                self.result['is_ready'] = template['isready']
+            if 'ispublic' in template:
+                self.result['is_public'] = template['ispublic']
+            if 'isfeatured' in template:
+                self.result['is_featured'] = template['isfeatured']
+            if 'isextractable' in template:
+                self.result['is_extractable'] = template['isextractable']
+            # and yes! it is really camelCase!
+            if 'crossZones' in template:
+                self.result['cross_zones'] = template['crossZones']
+            if 'ostypename' in template:
+                self.result['os_type'] = template['ostypename']
+            if 'templatetype' in template:
+                self.result['template_type'] = template['templatetype']
+            if 'passwordenabled' in template:
+                self.result['password_enabled'] = template['passwordenabled']
+            if 'sshkeyenabled' in template:
+                self.result['sshkey_enabled'] = template['sshkeyenabled']
             if 'status' in template:
-                result['status'] = template['status']
+                self.result['status'] = template['status']
             if 'created' in template:
-                result['created'] = template['created']
+                self.result['created'] = template['created']
             if 'templatetag' in template:
-                result['template_tag'] = template['templatetag']
+                self.result['template_tag'] = template['templatetag']
+            if 'tags' in template:
+                self.result['tags'] = []
+                for tag in template['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+            if 'domain' in template:
+                self.result['domain'] = template['domain']
+            if 'account' in template:
+                self.result['account'] = template['account']
+            if 'project' in template:
+                self.result['project'] = template['project']
         return self.result
 
 
@@ -556,39 +885,48 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             name = dict(required=True),
+            displaytext = dict(default=None),
             url = dict(default=None),
             vm = dict(default=None),
-            os_type = dict(required=True),
-            is_ready = dict(choices=BOOLEANS, default=False),
-            is_public = dict(choices=BOOLEANS, default=True),
-            is_featured = dict(choices=BOOLEANS, default=False),
-            is_dynamically_scalable = dict(choices=BOOLEANS, default=False),
+            snapshot = dict(default=None),
+            os_type = dict(default=None),
+            is_ready = dict(type='bool', choices=BOOLEANS, default=False),
+            is_public = dict(type='bool', choices=BOOLEANS, default=True),
+            is_featured = dict(type='bool', choices=BOOLEANS, default=False),
+            is_dynamically_scalable = dict(type='bool', choices=BOOLEANS, default=False),
+            is_extractable = dict(type='bool', choices=BOOLEANS, default=False),
+            is_routing = dict(type='bool', choices=BOOLEANS, default=False),
             checksum = dict(default=None),
-            project = dict(default=None),
-            zone = dict(default=None),
-            template_filter = dict(default='self', choices=[ 'featured', 'self', 'selfexecutable','sharedexecutable','executable', 'community' ]),
-            hypervisor = dict(default=None),
-            requires_hvm = dict(choices=BOOLEANS, default=False),
-            password_enabled = dict(choices=BOOLEANS, default=False),
+            template_filter = dict(default='self', choices=['featured', 'self', 'selfexecutable', 'sharedexecutable', 'executable', 'community']),
+            hypervisor = dict(choices=['KVM', 'VMware', 'BareMetal', 'XenServer', 'LXC', 'HyperV', 'UCS', 'OVM'], default=None),
+            requires_hvm = dict(type='bool', choices=BOOLEANS, default=False),
+            password_enabled = dict(type='bool', choices=BOOLEANS, default=False),
             template_tag = dict(default=None),
-            sshkey_enabled = dict(choices=BOOLEANS, default=None),
-            is_routing = dict(choices=BOOLEANS, default=False),
-            format = dict(default=None, choices=['QCOW2', 'RAW', 'VHD']),
-            is_extractable = dict(choices=BOOLEANS, default=False),
+            sshkey_enabled = dict(type='bool', choices=BOOLEANS, default=False),
+            format = dict(choices=['QCOW2', 'RAW', 'VHD', 'OVA'], default=None),
             details = dict(default=None),
-            bits = dict(default=64, choices=[ 32, 64 ]),
-            displaytext = dict(required=True),
+            bits = dict(type='int', choices=[ 32, 64 ], default=64),
             state = dict(choices=['present', 'absent'], default='present'),
+            zone = dict(default=None),
+            domain = dict(default=None),
+            account = dict(default=None),
+            project = dict(default=None),
+            poll_async = dict(type='bool', choices=BOOLEANS, default=True),
             api_key = dict(default=None),
             api_secret = dict(default=None),
             api_url = dict(default=None),
-            api_http_method = dict(default='get'),
+            api_http_method = dict(choices=['get', 'post'], default='get'),
+            api_timeout = dict(type='int', default=10),
         ),
         mutually_exclusive = (
             ['url', 'vm'],
         ),
         required_together = (
-            ['vm', 'format'],
+            ['api_key', 'api_secret', 'api_url'],
+            ['format', 'url', 'hypervisor'],
+        ),
+        required_one_of = (
+            ['url', 'vm'],
         ),
         supports_check_mode=True
     )
@@ -603,16 +941,19 @@ def main():
         if state in ['absent']:
             tpl = acs_tpl.remove_template()
         else:
-            vm = module.params.get('vm')
-            if vm:
-                tpl = acs_tpl.create_template()
-            else:
+            url = module.params.get('url')
+            if url:
                 tpl = acs_tpl.register_template()
+            else:
+                tpl = acs_tpl.create_template()
 
         result = acs_tpl.get_result(tpl)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
+
+    except Exception, e:
+        module.fail_json(msg='Exception: %s' % str(e))
 
     module.exit_json(**result)
 
