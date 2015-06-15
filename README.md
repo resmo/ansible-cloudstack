@@ -1,6 +1,8 @@
 Ansible Cloudstack Modules
 ==========================
 
+**BIG FAT WARNING - THIS REPO HAS EXPERIMENTAL STATE - THINGS MAY CHANGE AND BRAKE - OFFICIAL CLOUDSTACK MODULES ARE NOW IN UNRELEASED ANSIBLE 2.0**
+
 Manages resources on Apache CloudStack, Citrix CloudPlatform and Exoscale.
 
 Requirements
