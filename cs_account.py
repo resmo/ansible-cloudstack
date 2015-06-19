@@ -532,7 +532,7 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
             if accounts:
                 account_name = self.module.params.get('name')
                 for a in accounts['account']:
-                    if account_name in [ a['name'] ]:
+                    if account_name.lower() == a['name'].lower():
                         self.account = a
                         break
 
