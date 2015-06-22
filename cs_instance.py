@@ -712,9 +712,6 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             self.module.fail_json(msg="Template are ISO are mutually exclusive.")
 
         args                = {}
-        args['account']     = self.get_account('name')
-        args['domainid']    = self.get_domain('id')
-        args['projectid']   = self.get_project('id')
         args['zoneid']      = self.get_zone('id')
 
         if template:
@@ -742,10 +739,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         if not disk_offering:
             return None
 
-        args                = {}
-        args['domainid']    = self.get_domain('id')
-
-        disk_offerings = self.cs.listDiskOfferings(**args)
+        disk_offerings = self.cs.listDiskOfferings()
         if disk_offerings:
             for d in disk_offerings['diskoffering']:
                 if disk_offering in [ d['displaytext'], d['name'], d['id'] ]:
