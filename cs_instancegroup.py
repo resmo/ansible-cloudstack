@@ -352,7 +352,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if domain.lower() == d['path'].lower():
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
