@@ -757,10 +757,10 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             instance_name = self.module.params.get('name')
 
             args                = {}
-            args['account']     = self.get_account('name')
-            args['domainid']    = self.get_domain('id')
-            args['projectid']   = self.get_project('id')
-            args['zoneid']      = self.get_zone('id')
+            args['account']     = self.get_account(key='name')
+            args['domainid']    = self.get_domain(key='id')
+            args['projectid']   = self.get_project(key='id')
+            args['zoneid']      = self.get_zone(key='id')
 
             instances = self.cs.listVirtualMachines(**args)
             if instances:
@@ -777,10 +777,10 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             return None
 
         args                = {}
-        args['account']     = self.get_account('name')
-        args['domainid']    = self.get_domain('id')
-        args['projectid']   = self.get_project('id')
-        args['zoneid']      = self.get_zone('id')
+        args['account']     = self.get_account(key='name')
+        args['domainid']    = self.get_domain(key='id')
+        args['projectid']   = self.get_project(key='id')
+        args['zoneid']      = self.get_zone(key='id')
 
         networks = self.cs.listNetworks(**args)
         if not networks:
@@ -832,11 +832,11 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
         args                        = {}
         args['templateid']          = self.get_template_or_iso_id()
-        args['zoneid']              = self.get_zone('id')
+        args['zoneid']              = self.get_zone(key='id')
         args['serviceofferingid']   = self.get_service_offering_id()
-        args['account']             = self.get_account('name')
-        args['domainid']            = self.get_domain('id')
-        args['projectid']           = self.get_project('id')
+        args['account']             = self.get_account(key='name')
+        args['domainid']            = self.get_domain(key='id')
+        args['projectid']           = self.get_project(key='id')
         args['diskofferingid']      = self.get_disk_offering_id()
         args['networkids']          = self.get_network_ids()
         args['hypervisor']          = self.get_hypervisor()
@@ -879,7 +879,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args_ssh_key                                = {}
         args_ssh_key['id']                          = instance['id']
         args_ssh_key['keypair']                     = self.module.params.get('ssh_key')
-        args_ssh_key['projectid']                   = self.get_project('id')
+        args_ssh_key['projectid']                   = self.get_project(key='id')
         
         if self._has_changed(args_service_offering, instance) or \
            self._has_changed(args_instance_update, instance) or \
