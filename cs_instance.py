@@ -712,9 +712,6 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             self.module.fail_json(msg="Template are ISO are mutually exclusive.")
 
         args                = {}
-        args['account']     = self.get_account('name')
-        args['domainid']    = self.get_domain('id')
-        args['projectid']   = self.get_project('id')
         args['zoneid']      = self.get_zone('id')
         args['isrecursive'] = True
 
