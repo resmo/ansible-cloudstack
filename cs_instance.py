@@ -760,7 +760,6 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             args['account']     = self.get_account(key='name')
             args['domainid']    = self.get_domain(key='id')
             args['projectid']   = self.get_project(key='id')
-            args['zoneid']      = self.get_zone(key='id')
 
             instances = self.cs.listVirtualMachines(**args)
             if instances:
@@ -952,7 +951,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             if instance['state'].lower() in [ 'destroying', 'destroyed' ]:
                 self.result['changed'] = True
                 if not self.module.check_mode:
-                    res = self.cs.expungeVirtualMachine(id=instance['id'])
+                    res = self.cs.destroyVirtualMachine(id=instance['id'], expunge=True)
 
             elif instance['state'].lower() not in [ 'expunging' ]:
                 self.result['changed'] = True
@@ -964,7 +963,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                instance = self._poll_job(res, 'virtualmachine')
+                res = self._poll_job(res, 'virtualmachine')
         return instance
 
 
