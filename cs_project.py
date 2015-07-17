@@ -25,7 +25,7 @@ short_description: Manages projects on Apache CloudStack based clouds.
 description:
     - Create, update, suspend, activate and remove projects.
 version_added: '2.0'
-author: '"René Moser (@resmo)" <mail@renemoser.net>'
+author: "René Moser (@resmo)"
 options:
   name:
     description:
@@ -662,11 +662,9 @@ def main():
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
-    except Exception, e:
-        module.fail_json(msg='Exception: %s' % str(e))
-
     module.exit_json(**result)
 
 # import module snippets
 from ansible.module_utils.basic import *
-main()
+if __name__ == '__main__':
+    main()
