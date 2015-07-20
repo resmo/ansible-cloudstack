@@ -478,13 +478,6 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
         self.project = None
 
 
-    def get_displaytext(self):
-        displaytext = self.module.params.get('displaytext')
-        if not displaytext:
-            displaytext = self.module.params.get('name')
-        return displaytext
-
-
     def get_project(self):
         if not self.project:
             project = self.module.params.get('name')
@@ -514,7 +507,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
     def update_project(self, project):
         args                = {}
         args['id']          = project['id']
-        args['displaytext'] = self.get_displaytext()
+        args['displaytext'] = self.get_or_fallback('displaytext', 'name')
 
         if self._has_changed(args, project):
             self.result['changed'] = True
@@ -535,7 +528,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
         args                = {}
         args['name']        = self.module.params.get('name')
-        args['displaytext'] = self.get_displaytext()
+        args['displaytext'] = self.get_or_fallback('displaytext', 'name')
         args['account']     = self.get_account('name')
         args['domainid']    = self.get_domain('id')
 
