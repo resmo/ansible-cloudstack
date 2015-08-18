@@ -36,25 +36,6 @@
     - sg_rule.end_port == 8888
     - sg_rule.cidr == '1.2.3.4/32'
 
-#- name: test change http range rule
-#  cs_securitygroup_rule:
-#    security_group: default
-#    start_port: 8000
-#    end_port: 8080
-#    cidr: 1.2.3.4/32
-#  register: sg_rule
-#- name: verify change http range rule 
-#  assert:
-#    that:
-#    - sg_rule|success
-#    - sg_rule|changed
-#    - sg_rule.type == 'ingress'
-#    - sg_rule.security_group == 'default'
-#    - sg_rule.protocol == 'tcp'
-#    - sg_rule.start_port == 8000
-#    - sg_rule.end_port == 8080
-#    - sg_rule.cidr == '1.2.3.4/32'
-
 - name: test create single port udp rule
   cs_securitygroup_rule:
     security_group: default
@@ -95,27 +76,6 @@
     - sg_rule.start_port == 5353
     - sg_rule.end_port == 5353
     - sg_rule.user_security_group == '{{ cs_resource_prefix }}_sg'
-
-#- name: test update single port udp rule
-#  cs_securitygroup_rule:
-#    security_group: default
-#    start_port: 5353
-#    end_port: 5555
-#    protocol: udp
-#    type: egress
-#    user_security_group: '{{ cs_resource_prefix }}_sg'
-#  register: sg_rule
-#- name: verify single port udp rule
-#  assert:
-#    that:
-#    - sg_rule|success
-#    - sg_rule|changed
-#    - sg_rule.type == 'egress'
-#    - sg_rule.security_group == 'default'
-#    - sg_rule.protocol == 'udp'
-#    - sg_rule.start_port == 5353
-#    - sg_rule.end_port == 5555
-#    - sg_rule.user_security_group == '{{ cs_resource_prefix }}_sg'
 
 - name: test icmp rule
   cs_securitygroup_rule:
