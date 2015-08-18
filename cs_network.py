@@ -197,7 +197,7 @@ EXAMPLES = '''
 RETURN = '''
 ---
 id:
-  description: ID of the network.
+  description: UUID of the network.
   returned: success
   type: string
   sample: 04589590-ac63-4ffc-93f5-b698b8ac38b6
@@ -325,7 +325,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -334,6 +334,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -568,7 +587,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -658,10 +677,46 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackNetwork(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackNetwork, self).__init__(module)
+        self.returns = {
+            'networkdomain':        'network domain',
+            'networkofferingname':  'network_offering',
+            'ispersistent':         'is_persistent',
+            'acltype':              'acl_type',
+            'type':                 'type',
+            'traffictype':          'traffic_type',
+            'ip6gateway':           'gateway_ipv6',
+            'ip6cidr':              'cidr_ipv6',
+            'gateway':              'gateway',
+            'cidr':                 'cidr',
+            'netmask':              'netmask',
+            'broadcastdomaintype':  'broadcast_domaintype',
+            'dns1':                 'dns1',
+            'dns2':                 'dns2',
+        }
+
         self.network = None
 
 
@@ -832,61 +887,6 @@ class AnsibleCloudStackNetwork(AnsibleCloudStack):
                     res = self._poll_job(res, 'network')
             return network
 
-
-    def get_result(self, network):
-        if network:
-            if 'id' in network:
-                self.result['id'] = network['id']
-            if 'name' in network:
-                self.result['name'] = network['name']
-            if 'displaytext' in network:
-                self.result['displaytext'] = network['displaytext']
-            if 'dns1' in network:
-                self.result['dns1'] = network['dns1']
-            if 'dns2' in network:
-                self.result['dns2'] = network['dns2']
-            if 'cidr' in network:
-                self.result['cidr'] = network['cidr']
-            if 'broadcastdomaintype' in network:
-                self.result['broadcast_domaintype'] = network['broadcastdomaintype']
-            if 'netmask' in network:
-                self.result['netmask'] = network['netmask']
-            if 'gateway' in network:
-                self.result['gateway'] = network['gateway']
-            if 'ip6cidr' in network:
-                self.result['cidr_ipv6'] = network['ip6cidr']
-            if 'ip6gateway' in network:
-                self.result['gateway_ipv6'] = network['ip6gateway']
-            if 'state' in network:
-                self.result['state'] = network['state']
-            if 'type' in network:
-                self.result['type'] = network['type']
-            if 'traffictype' in network:
-                self.result['traffic_type'] = network['traffictype']
-            if 'zone' in network:
-                self.result['zone'] = network['zonename']
-            if 'domain' in network:
-                self.result['domain'] = network['domain']
-            if 'account' in network:
-                self.result['account'] = network['account']
-            if 'project' in network:
-                self.result['project'] = network['project']
-            if 'acltype' in network:
-                self.result['acl_type'] = network['acltype']
-            if 'networkdomain' in network:
-                self.result['network_domain'] = network['networkdomain']
-            if 'networkofferingname' in network:
-                self.result['network_offering'] = network['networkofferingname']
-            if 'ispersistent' in network:
-                self.result['is_persistent'] = network['ispersistent']
-            if 'tags' in network:
-                self.result['tags'] = []
-                for tag in network['tags']:
-                    result_tag          = {}
-                    result_tag['key']   = tag['key']
-                    result_tag['value'] = tag['value']
-                    self.result['tags'].append(result_tag)
-        return self.result
 
 
 def main():

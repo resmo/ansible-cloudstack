@@ -80,7 +80,7 @@ local_action:
 RETURN = '''
 ---
 id:
-  description: ID of the domain.
+  description: UUID of the domain.
   returned: success
   type: string
   sample: 87b1e0ce-4e01-11e4-bb66-0050569e64b8
@@ -113,7 +113,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -122,6 +122,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -356,7 +375,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -446,10 +465,34 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackDomain(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackDomain, self).__init__(module)
+        self.returns = {
+            'path':             'path',
+            'networkdomain':    'network_domain',
+            'parentdomainname': 'parent_domain',
+        }
         self.domain = None
 
 
@@ -561,20 +604,6 @@ class AnsibleCloudStackDomain(AnsibleCloudStack):
                     res = self._poll_job(res, 'domain')
         return domain
 
-
-    def get_result(self, domain):
-        if domain:
-            if 'id' in domain:
-                self.result['id'] = domain['id']
-            if 'name' in domain:
-                self.result['name'] = domain['name']
-            if 'path' in domain:
-                self.result['path'] = domain['path']
-            if 'parentdomainname' in domain:
-                self.result['parent_domain'] = domain['parentdomainname']
-            if 'networkdomain' in domain:
-                self.result['network_domain'] = domain['networkdomain']
-        return self.result
 
 
 def main():

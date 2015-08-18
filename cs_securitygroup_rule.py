@@ -139,6 +139,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the of the rule.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 security_group:
   description: security group of the rule.
   returned: success
@@ -183,7 +188,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -192,6 +197,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -426,7 +450,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -516,10 +540,38 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackSecurityGroupRule, self).__init__(module)
+        self.returns = {
+            'icmptype':             'icmp_type',
+            'icmpcode':             'icmp_code',
+            'endport':              'end_port',
+            'start_port':           'start_port',
+            'protocol':             'protocol',
+            'cidr':                 'cidr',
+            'securitygroupname':    'user_security_group',
+        }
 
 
     def _tcp_udp_match(self, rule, protocol, start_port, end_port):
@@ -679,27 +731,11 @@ class AnsibleCloudStackSecurityGroupRule(AnsibleCloudStack):
 
 
     def get_result(self, security_group_rule):
-
+        super(AnsibleCloudStackSecurityGroupRule, self).get_result(security_group_rule)
         self.result['type'] = self.module.params.get('type')
         self.result['security_group'] = self.module.params.get('security_group')
-        
-        if security_group_rule:
-            rule = security_group_rule
-            if 'securitygroupname' in rule:
-                self.result['user_security_group'] = rule['securitygroupname']
-            if 'cidr' in rule:
-                self.result['cidr'] = rule['cidr']
-            if 'protocol' in rule:
-                self.result['protocol'] = rule['protocol']
-            if 'startport' in rule:
-                self.result['start_port'] = rule['startport']
-            if 'endport' in rule:
-                self.result['end_port'] = rule['endport']
-            if 'icmpcode' in rule:
-                self.result['icmp_code'] = rule['icmpcode']
-            if 'icmptype' in rule:
-                self.result['icmp_type'] = rule['icmptype']
         return self.result
+
 
 
 def main():

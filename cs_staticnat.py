@@ -93,6 +93,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the ip_address.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 ip_address:
   description: Public IP address.
   returned: success
@@ -143,7 +148,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -152,6 +157,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -386,7 +410,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -476,10 +500,35 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackStaticNat(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackPortforwarding, self).__init__(module)
+        self.returns = {
+            'virtualmachinedisplayname':    'vm_display_name',
+            'virtualmachinename':           'vm_name',
+            'ipaddress':                    'ip_address',
+            'vmipaddress':                  'vm_guest_ip',
+        }
         self.vm_default_nic = None
 
 
@@ -575,26 +624,6 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
                     res = self._poll_job(res, 'staticnat')
         return ip_address
 
-
-    def get_result(self, ip_address):
-        if ip_address:
-            if 'zonename' in ip_address:
-                self.result['zone'] = ip_address['zonename']
-            if 'domain' in ip_address:
-                self.result['domain'] = ip_address['domain']
-            if 'account' in ip_address:
-                self.result['account'] = ip_address['account']
-            if 'project' in ip_address:
-                self.result['project'] = ip_address['project']
-            if 'virtualmachinedisplayname' in ip_address:
-                self.result['vm_display_name'] = ip_address['virtualmachinedisplayname']
-            if 'virtualmachinename' in ip_address:
-                self.result['vm'] = ip_address['virtualmachinename']
-            if 'vmipaddress' in ip_address:
-                self.result['vm_guest_ip'] = ip_address['vmipaddress']
-            if 'ipaddress' in ip_address:
-                self.result['ip_address'] = ip_address['ipaddress']
-        return self.result
 
 
 def main():

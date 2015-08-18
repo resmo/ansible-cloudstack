@@ -148,6 +148,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the public IP address.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 ip_address:
   description: Public IP address.
   returned: success
@@ -206,7 +211,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -215,6 +220,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -449,7 +473,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -539,10 +563,44 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackPortforwarding, self).__init__(module)
+        self.returns = {
+            'virtualmachinedisplayname':    'vm_display_name',
+            'virtualmachinename':           'vm_name',
+            'ipaddress':                    'ip_address',
+            'vmguestip':                    'vm_guest_ip',
+            'publicip':                     'public_ip',
+            'protocol':                     'protocol',
+        }
+        # these values will be casted to int
+        self.returns_to_int = {
+            'publicport':       'public_port',
+            'publicendport':    'public_end_port',
+            'privateport':      'private_port',
+            'private_end_port': 'private_end_port',
+        }
         self.portforwarding_rule = None
         self.vm_default_nic = None
 
@@ -668,34 +726,12 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
 
     def get_result(self, portforwarding_rule):
+        super(AnsibleCloudStackPortforwarding, self).get_result(portforwarding_rule)
         if portforwarding_rule:
-            if 'id' in portforwarding_rule:
-                self.result['id'] = portforwarding_rule['id']
-            if 'virtualmachinedisplayname' in portforwarding_rule:
-                self.result['vm_display_name'] = portforwarding_rule['virtualmachinedisplayname']
-            if 'virtualmachinename' in portforwarding_rule:
-                self.result['vm_name'] = portforwarding_rule['virtualmachinename']
-            if 'ipaddress' in portforwarding_rule:
-                self.result['ip_address'] = portforwarding_rule['ipaddress']
-            if 'vmguestip' in portforwarding_rule:
-                self.result['vm_guest_ip'] = portforwarding_rule['vmguestip']
-            if 'publicport' in portforwarding_rule:
-                self.result['public_port'] = int(portforwarding_rule['publicport'])
-            if 'publicendport' in portforwarding_rule:
-                self.result['public_end_port'] = int(portforwarding_rule['publicendport'])
-            if 'privateport' in portforwarding_rule:
-                self.result['private_port'] = int(portforwarding_rule['privateport'])
-            if 'privateendport' in portforwarding_rule:
-                self.result['private_end_port'] = int(portforwarding_rule['privateendport'])
-            if 'protocol' in portforwarding_rule:
-                self.result['protocol'] = portforwarding_rule['protocol']
-            if 'tags' in portforwarding_rule:
-                self.result['tags'] = []
-                for tag in portforwarding_rule['tags']:
-                    result_tag          = {}
-                    result_tag['key']   = tag['key']
-                    result_tag['value'] = tag['value']
-                    self.result['tags'].append(result_tag)
+            # Bad bad API does not always return int when it should.
+            for search_key, return_key in returns_to_int.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = int(resource[search_key])
         return self.result
 
 

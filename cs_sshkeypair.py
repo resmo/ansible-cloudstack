@@ -77,6 +77,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the SSH public key.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 name:
   description: Name of the SSH public key.
   returned: success
@@ -107,7 +112,7 @@ try:
 except ImportError:
     has_lib_sshpubkeys = False
 
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -116,6 +121,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -350,7 +374,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -439,10 +463,33 @@ class AnsibleCloudStack:
                 time.sleep(2)
         return job
 
+
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
 class AnsibleCloudStackSshKey(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackSshKey, self).__init__(module)
+        self.returns = {
+            'privatekey':   'private_key',
+            'fingerprint':  'fingerprint',
+        }
         self.ssh_key = None
 
 
@@ -518,16 +565,6 @@ class AnsibleCloudStackSshKey(AnsibleCloudStack):
                 self.ssh_key = ssh_keys['sshkeypair'][0]
         return self.ssh_key
 
-
-    def get_result(self, ssh_key):
-        if ssh_key:
-            if 'fingerprint' in ssh_key:
-                self.result['fingerprint'] = ssh_key['fingerprint']
-            if 'name' in ssh_key:
-                self.result['name'] = ssh_key['name']
-            if 'privatekey' in ssh_key:
-                self.result['private_key'] = ssh_key['privatekey']
-        return self.result
 
 
     def _get_ssh_fingerprint(self, public_key):

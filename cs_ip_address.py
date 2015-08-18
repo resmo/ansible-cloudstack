@@ -21,7 +21,7 @@
 DOCUMENTATION = '''
 ---
 module: cs_ip_address
-short_description: Manages Public/Secondary IP address associations
+short_description: Manages public IP address associations on Apache CloudStack based clouds.
 description:
     - Acquires and associates a public IP to an account or project. Due to API
       limitations this is not an idempotent call, so be sure to only
@@ -31,7 +31,8 @@ author: "Darren Worrall @dazworrall"
 options:
   ip_address:
     description:
-      - Public IP address. Required if C(state=absent)
+      - Public IP address.
+      - Required if C(state=absent)
     required: false
     default: null
   domain:
@@ -69,7 +70,7 @@ extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
-# Associate an IP address
+# Associate an IP address conditonally
 - local_action:
     module: cs_ip_address
     network: My Network
@@ -85,6 +86,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the Public IP address.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 ip_address:
   description: Public IP address.
   returned: success
@@ -120,7 +126,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -129,6 +135,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -363,7 +388,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -453,7 +478,33 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackIPAddress(AnsibleCloudStack):
+
+    def __init__(self, module):
+        super(AnsibleCloudStackIPAddress, self).__init__(module)
+        self.returns = {
+            'ipaddress': 'ip_address',
+        }
+
 
     #TODO: Add to parent class, duplicated in cs_network
     def get_network(self, key=None, network=None):
@@ -479,6 +530,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
                 break
         self.module.fail_json(msg="Network '%s' not found" % network)
 
+
     #TODO: Merge changes here with parent class
     def get_ip_address(self, key=None):
         if self.ip_address:
@@ -498,6 +550,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
         if ip_addresses:
             self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
+
 
     def associate_ip_address(self):
         self.result['changed'] = True
@@ -519,6 +572,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
             ip_address = res
         return ip_address
 
+
     def disassociate_ip_address(self):
         ip_address = self.get_ip_address()
         if ip_address is None:
@@ -535,22 +589,6 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
             if poll_async:
                 res = self._poll_job(res, 'ipaddress')
         return ip_address
-
-    def get_result(self, ip_address):
-        if ip_address:
-            if 'zonename' in ip_address:
-                self.result['zone'] = ip_address['zonename']
-            if 'domain' in ip_address:
-                self.result['domain'] = ip_address['domain']
-            if 'account' in ip_address:
-                self.result['account'] = ip_address['account']
-            if 'project' in ip_address:
-                self.result['project'] = ip_address['project']
-            if 'ipaddress' in ip_address:
-                self.result['ip_address'] = ip_address['ipaddress']
-            if 'id' in ip_address:
-                self.result['id'] = ip_address['id']
-        return self.result
 
 
 def main():

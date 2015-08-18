@@ -140,6 +140,11 @@ EXAMPLES = '''
 
 RETURN = '''
 ---
+id:
+  description: UUID of the ISO.
+  returned: success
+  type: string
+  sample: a6f7a5fc-43f8-11e5-a151-feff819cdc9f
 name:
   description: Name of the ISO.
   returned: success
@@ -199,7 +204,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -208,6 +213,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -442,7 +466,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -532,10 +556,34 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackIso(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackIso, self).__init__(module)
+        self.returns = {
+            'checksum': 'checksum',
+            'status':   'status',
+            'isready':  'is_ready',
+        }
         self.iso = None
 
     def register_iso(self):
@@ -612,30 +660,6 @@ class AnsibleCloudStackIso(AnsibleCloudStack):
                 res = self.cs.deleteIso(**args)
         return iso
 
-
-    def get_result(self, iso):
-        if iso:
-            if 'displaytext' in iso:
-                self.result['displaytext'] = iso['displaytext']
-            if 'name' in iso:
-                self.result['name'] = iso['name']
-            if 'zonename' in iso:
-                self.result['zone'] = iso['zonename']
-            if 'checksum' in iso:
-                self.result['checksum'] = iso['checksum']
-            if 'status' in iso:
-                self.result['status'] = iso['status']
-            if 'isready' in iso:
-                self.result['is_ready'] = iso['isready']
-            if 'created' in iso:
-                self.result['created'] = iso['created']
-            if 'project' in iso:
-                self.result['project'] = iso['project']
-            if 'domain' in iso:
-                self.result['domain'] = iso['domain']
-            if 'account' in iso:
-                self.result['account'] = iso['account']
-        return self.result
 
 
 def main():

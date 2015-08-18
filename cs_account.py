@@ -139,6 +139,11 @@ local_action:
 
 RETURN = '''
 ---
+id:
+  description: UUID of the account.
+  returned: success
+  type: string
+  sample: 87b1e0ce-4e01-11e4-bb66-0050569e64b8
 name:
   description: Name of the account.
   returned: success
@@ -149,7 +154,7 @@ account_type:
   returned: success
   type: string
   sample: user
-account_state:
+state:
   description: State of the account.
   returned: success
   type: string
@@ -173,7 +178,7 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -182,6 +187,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'displaytext',
+            'displayname':  'displayname',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -416,7 +440,7 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ] :
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
@@ -506,10 +530,32 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
+
 class AnsibleCloudStackAccount(AnsibleCloudStack):
 
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackAccount, self).__init__(module)
+        self.returns = {
+            'networkdomain': 'network_domain',
+        }
         self.account = None
         self.account_types = {
             'user':         0,
@@ -658,20 +704,13 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
 
 
     def get_result(self, account):
+        super(AnsibleCloudStackAccount, self).get_result(account)
         if account:
-            if 'name' in account:
-                self.result['name'] = account['name']
             if 'accounttype' in account:
                 for key,value in self.account_types.items():
                     if value == account['accounttype']:
                         self.result['account_type'] = key
                         break
-            if 'state' in account:
-                self.result['account_state'] = account['state']
-            if 'domain' in account:
-                self.result['domain'] = account['domain']
-            if 'networkdomain' in account:
-                self.result['network_domain'] = account['networkdomain']
         return self.result
 
 
