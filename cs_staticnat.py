@@ -522,7 +522,7 @@ class AnsibleCloudStack(object):
 class AnsibleCloudStackStaticNat(AnsibleCloudStack):
 
     def __init__(self, module):
-        super(AnsibleCloudStackPortforwarding, self).__init__(module)
+        super(AnsibleCloudStackStaticNat, self).__init__(module)
         self.returns = {
             'virtualmachinedisplayname':    'vm_display_name',
             'virtualmachinename':           'vm_name',
