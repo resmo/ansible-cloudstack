@@ -7,9 +7,11 @@ Manages resources on Apache CloudStack, Citrix CloudPlatform and Exoscale.
 
 Difference of CloudStack modules in ansible-modules-extras and this repo?
 --------------------------------------------------------------------------
-I would like to give you some general explanation about this repo and *ansible-modules-extras*. First of all this repo has been made for simple using CloudStack modules while ansible 2.0 is not yet released. I maintain the CloudStack modules in *ansible-modules-extras* as wel and I am in charge to keep them in sync.
+I would like to give you some general explanation about this repo and *ansible-modules-extras*. First of all this repo has been made for simple using CloudStack modules while ansible 2.0 is not yet released. I maintain the CloudStack modules in *ansible-modules-extras* as well and I am in charge to keep them in sync.
 
-It is fine, to make changes and PR here first. After acceptance you should also make a PR to ansible-modules-extras (or let me know if I should do it.)
+**This means they are 100% compatible**.
+
+If you like to contribute, it would be fine to make PRs here first. After acceptance you should also make a PR to ansible-modules-extras (or let me know if I should do it.)
 
 AnsibleCloudStack (called utils) in upstream Ansible is located in *ansible* repo [here](https://github.com/ansible/ansible/blob/devel/lib/ansible/module_utils/cloudstack.py) and will be imported in *ansible-modules-extras* (once ansible 2.0 is released). 
 
