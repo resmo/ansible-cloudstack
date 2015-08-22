@@ -552,7 +552,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
             args['projectid'] = self.get_project(key='id')
-            args['listall'] = True
 
             volumes = self.cs.listVolumes(**args)
 
@@ -580,6 +579,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['miniops'] = self.module.params.get('min_iops')
             args['projectid'] = self.get_project(key='id')
             args['size'] = self.module.params.get('size')
+            args['snapshotid'] = self.module.params.get('snapshot_id')
             args['zoneid'] = self.get_zone(key='id')
 
             if not self.module.check_mode:
@@ -592,11 +592,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         return volume
 
     def attached_volume(self):
-        missing_params = []
-
-        if missing_params:
-            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
-
         volume = self.present_volume()
 
         if 'virtualmachineid' in volume and volume['virtualmachineid'] != self.get_vm(key='id'):
@@ -626,6 +621,9 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         volume = self.get_volume()
 
         if volume:
+            if 'attached' not in volume:
+                return volume
+
             self.result['changed'] = True
 
             if not self.module.check_mode:
