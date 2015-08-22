@@ -157,6 +157,11 @@ options:
     required: false
     default: []
     aliases: [ 'affinity_group' ]
+  start_vm:
+    description:
+      - Whether to start the instance after first deployment.
+    required: false
+    default: true
   user_data:
     description:
       - Optional data (ASCII) that can be sent to the instance upon a successful deployment.
@@ -942,6 +947,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args['keypair']             = self.module.params.get('ssh_key')
         args['size']                = self.module.params.get('disk_size')
         args['rootdisksize']        = self.module.params.get('root_disk_size')
+        args['startvm']             = self.module.params.get('start_vm')
         args['securitygroupnames']  = ','.join(self.module.params.get('security_groups'))
         args['affinitygroupnames']  = ','.join(self.module.params.get('affinity_groups'))
 
@@ -1175,6 +1181,7 @@ def main():
             domain = dict(default=None),
             account = dict(default=None),
             project = dict(default=None),
+            start_vm = dict(choices=BOOLEANS, default=True),
             user_data = dict(default=None),
             zone = dict(default=None),
             ssh_key = dict(default=None),
