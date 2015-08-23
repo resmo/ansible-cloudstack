@@ -330,8 +330,20 @@ class AnsibleCloudStack(object):
         self.capabilities = capabilities['capability']
         return self._get_by_key(key, self.capabilities)
 
+    def get_disk_offering(self, key=None):
+        disk_offering = self.module.params.get('disk_offering')
 
-    # TODO: for backward compatibility only, remove if not used anymore
+        if not disk_offering:
+            return None
+
+        disk_offerings = self.cs.listDiskOfferings()
+        if disk_offerings:
+            for d in disk_offerings['diskoffering']:
+                if disk_offering in [d['displaytext'], d['name'], d['id']]:
+                    return self._get_by_key(key, d)
+        self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
+
+    # TODO: for backward compatibility only, remov not used anymore
     def _poll_job(self, job=None, key=None):
         return self.poll_job(job=job, key=key)
 
