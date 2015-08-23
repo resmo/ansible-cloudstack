@@ -77,11 +77,11 @@ class AnsibleCloudStack(object):
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
-                continue;
+                continue
 
             # Skip None values
             if value is None:
-                continue;
+                continue
 
             if key in current_dict:
 
@@ -323,13 +323,6 @@ class AnsibleCloudStack(object):
         return resource
 
 
-    def get_capabilities(self, key=None):
-        if self.capabilities:
-            return self._get_by_key(key, self.capabilities)
-        capabilities = self.cs.listCapabilities()
-        self.capabilities = capabilities['capability']
-        return self._get_by_key(key, self.capabilities)
-
     def get_disk_offering(self, key=None):
         disk_offering = self.module.params.get('disk_offering')
 
@@ -343,7 +336,16 @@ class AnsibleCloudStack(object):
                     return self._get_by_key(key, d)
         self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
 
-    # TODO: for backward compatibility only, remov not used anymore
+
+    def get_capabilities(self, key=None):
+        if self.capabilities:
+            return self._get_by_key(key, self.capabilities)
+        capabilities = self.cs.listCapabilities()
+        self.capabilities = capabilities['capability']
+        return self._get_by_key(key, self.capabilities)
+
+
+    # TODO: for backward compatibility only, remove it if not used anymore
     def _poll_job(self, job=None, key=None):
         return self.poll_job(job=job, key=key)
 

@@ -21,9 +21,9 @@
 DOCUMENTATION = '''
 ---
 module: cs_volume
-short_description: Manages volume on Apache CloudStack based clouds.
+short_description: Manages volumes on Apache CloudStack based clouds.
 description:
-    - Create, destroy, attach, detach volumes
+    - Create, destroy, attach, detach volumes.
 version_added: '2.0'
 author: "Jefferson Girão (@jeffersongirao)"
 options:
@@ -79,7 +79,7 @@ options:
     default: null
   snapshot_id:
     description:
-      - The snapshot ID for the disk volume. Either disk_offering or snapshot_id must be passed in.
+      - The snapshot ID for the disk volume. Either C(disk_offering) or C(snapshot_id) must be passed in.
     required: false
     default: null
   vm:
@@ -215,7 +215,7 @@ except ImportError:
 
 
 # import cloudstack common
-class AnsibleCloudStack:
+class AnsibleCloudStack(object):
 
     def __init__(self, module):
         if not has_lib_cs:
@@ -224,6 +224,25 @@ class AnsibleCloudStack:
         self.result = {
             'changed': False,
         }
+
+        # Common returns, will be merged with self.returns
+        # search_for_key: replace_with_key
+        self.common_returns = {
+            'id':           'id',
+            'name':         'name',
+            'created':      'created',
+            'zonename':     'zone',
+            'state':        'state',
+            'project':      'project',
+            'account':      'account',
+            'domain':       'domain',
+            'displaytext':  'display_text',
+            'displayname':  'display_name',
+            'description':  'description',
+        }
+
+        # Init returns dict for use in subclasses
+        self.returns = {}
 
         self.module = module
         self._connect()
@@ -237,6 +256,7 @@ class AnsibleCloudStack:
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
+
 
     def _connect(self):
         api_key = self.module.params.get('api_key')
@@ -256,15 +276,18 @@ class AnsibleCloudStack:
         else:
             self.cs = CloudStack(**read_config())
 
+
     def get_or_fallback(self, key=None, fallback_key=None):
         value = self.module.params.get(key)
         if not value:
             value = self.module.params.get(fallback_key)
         return value
 
+
     # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
         return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
+
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
@@ -290,12 +313,14 @@ class AnsibleCloudStack:
                     return True
         return False
 
+
     def _get_by_key(self, key=None, my_dict={}):
         if key:
             if key in my_dict:
                 return my_dict[key]
             self.module.fail_json(msg="Something went wrong: %s not found" % key)
         return my_dict
+
 
     def get_project(self, key=None):
         if self.project:
@@ -310,10 +335,11 @@ class AnsibleCloudStack:
         projects = self.cs.listProjects(**args)
         if projects:
             for p in projects['project']:
-                if project.lower() in [p['name'].lower(), p['id']]:
+                if project.lower() in [ p['name'].lower(), p['id'] ]:
                     self.project = p
                     return self._get_by_key(key, self.project)
         self.module.fail_json(msg="project '%s' not found" % project)
+
 
     def get_ip_address(self, key=None):
         if self.ip_address:
@@ -336,6 +362,7 @@ class AnsibleCloudStack:
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
 
+
     def get_vm(self, key=None):
         if self.vm:
             return self._get_by_key(key, self.vm)
@@ -352,10 +379,11 @@ class AnsibleCloudStack:
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
-                if vm in [v['name'], v['displayname'], v['id']]:
+                if vm in [ v['name'], v['displayname'], v['id'] ]:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
+
 
     def get_zone(self, key=None):
         if self.zone:
@@ -371,10 +399,11 @@ class AnsibleCloudStack:
 
         if zones:
             for z in zones['zone']:
-                if zone in [z['name'], z['id']]:
+                if zone in [ z['name'], z['id'] ]:
                     self.zone = z
                     return self._get_by_key(key, self.zone)
         self.module.fail_json(msg="zone '%s' not found" % zone)
+
 
     def get_os_type(self, key=None):
         if self.os_type:
@@ -387,10 +416,11 @@ class AnsibleCloudStack:
         os_types = self.cs.listOsTypes()
         if os_types:
             for o in os_types['ostype']:
-                if os_type in [o['description'], o['id']]:
+                if os_type in [ o['description'], o['id'] ]:
                     self.os_type = o
                     return self._get_by_key(key, self.os_type)
         self.module.fail_json(msg="OS type '%s' not found" % os_type)
+
 
     def get_hypervisor(self):
         if self.hypervisor:
@@ -409,6 +439,7 @@ class AnsibleCloudStack:
                 self.hypervisor = h['name']
                 return self.hypervisor
         self.module.fail_json(msg="Hypervisor '%s' not found" % hypervisor)
+
 
     def get_account(self, key=None):
         if self.account:
@@ -432,6 +463,7 @@ class AnsibleCloudStack:
             return self._get_by_key(key, self.account)
         self.module.fail_json(msg="Account '%s' not found" % account)
 
+
     def get_domain(self, key=None):
         if self.domain:
             return self._get_by_key(key, self.domain)
@@ -445,16 +477,18 @@ class AnsibleCloudStack:
         domains = self.cs.listDomains(**args)
         if domains:
             for d in domains['domain']:
-                if d['path'].lower() in [domain.lower(), "root/" + domain.lower(), "root" + domain.lower()]:
+                if d['path'].lower() in [ domain.lower(), "root/" + domain.lower(), "root" + domain.lower() ]:
                     self.domain = d
                     return self._get_by_key(key, self.domain)
         self.module.fail_json(msg="Domain '%s' not found" % domain)
+
 
     def get_tags(self, resource=None):
         existing_tags = self.cs.listTags(resourceid=resource['id'])
         if existing_tags:
             return existing_tags['tag']
         return []
+
 
     def _delete_tags(self, resource, resource_type, tags):
         existing_tags = resource['tags']
@@ -469,10 +503,11 @@ class AnsibleCloudStack:
             self.result['changed'] = True
             if not self.module.check_mode:
                 args = {}
-                args['resourceids'] = resource['id']
+                args['resourceids']  = resource['id']
                 args['resourcetype'] = resource_type
-                args['tags'] = tags_to_delete
+                args['tags']         = tags_to_delete
                 self.cs.deleteTags(**args)
+
 
     def _create_tags(self, resource, resource_type, tags):
         tags_to_create = []
@@ -486,10 +521,11 @@ class AnsibleCloudStack:
             self.result['changed'] = True
             if not self.module.check_mode:
                 args = {}
-                args['resourceids'] = resource['id']
+                args['resourceids']  = resource['id']
                 args['resourcetype'] = resource_type
-                args['tags'] = tags_to_create
+                args['tags']         = tags_to_create
                 self.cs.createTags(**args)
+
 
     def ensure_tags(self, resource, resource_type=None):
         if not resource_type or not resource:
@@ -503,12 +539,6 @@ class AnsibleCloudStack:
                 resource['tags'] = self.get_tags(resource)
         return resource
 
-    def get_capabilities(self, key=None):
-        if self.capabilities:
-            return self._get_by_key(key, self.capabilities)
-        capabilities = self.cs.listCapabilities()
-        self.capabilities = capabilities['capability']
-        return self._get_by_key(key, self.capabilities)
 
     def get_disk_offering(self, key=None):
         disk_offering = self.module.params.get('disk_offering')
@@ -523,9 +553,19 @@ class AnsibleCloudStack:
                     return self._get_by_key(key, d)
         self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
 
-    # TODO: for backward compatibility only, remove if not used anymore
+
+    def get_capabilities(self, key=None):
+        if self.capabilities:
+            return self._get_by_key(key, self.capabilities)
+        capabilities = self.cs.listCapabilities()
+        self.capabilities = capabilities['capability']
+        return self._get_by_key(key, self.capabilities)
+
+
+    # TODO: for backward compatibility only, remove it if not used anymore
     def _poll_job(self, job=None, key=None):
         return self.poll_job(job=job, key=key)
+
 
     def poll_job(self, job=None, key=None):
         if 'jobid' in job:
@@ -541,10 +581,37 @@ class AnsibleCloudStack:
         return job
 
 
+    def get_result(self, resource):
+        if resource:
+            returns = self.common_returns.copy()
+            returns.update(self.returns)
+            for search_key, return_key in returns.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = resource[search_key]
+
+            # Special handling for tags
+            if 'tags' in resource:
+                self.result['tags'] = []
+                for tag in resource['tags']:
+                    result_tag          = {}
+                    result_tag['key']   = tag['key']
+                    result_tag['value'] = tag['value']
+                    self.result['tags'].append(result_tag)
+        return self.result
+
 class AnsibleCloudStackVolume(AnsibleCloudStack):
+
     def __init__(self, module):
-        AnsibleCloudStack.__init__(self, module)
+        super(AnsibleCloudStackVolume, self).__init__()
+        self.returns = {
+            'group':            'group',
+            'attached':         'attached',
+            'virtualmachineid': 'vm_id',
+            'vmdisplayname':    'vm_display_name',
+            'deviceid':         'device_id',
+        }
         self.volume = None
+
 
     def get_volume(self):
         if not self.volume:
@@ -562,6 +629,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
                         self.volume = v
                         break
         return self.volume
+
 
     def present_volume(self):
         volume = self.get_volume()
@@ -591,6 +659,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
                     volume = self.poll_job(res, 'volume')
         return volume
 
+
     def attached_volume(self):
         volume = self.present_volume()
 
@@ -617,6 +686,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
                     volume = self.poll_job(res, 'volume')
         return volume
 
+
     def detached_volume(self):
         volume = self.get_volume()
 
@@ -635,6 +705,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
                     volume = self.poll_job(res, 'volume')
         return volume
 
+
     def absent_volume(self):
         volume = self.get_volume()
 
@@ -652,37 +723,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
 
         return volume
 
-    def get_result(self, volume):
-        if volume:
-            if 'id' in volume:
-                self.result['id'] = volume['id']
-            if 'name' in volume:
-                self.result['name'] = volume['name']
-            if 'displayname' in volume:
-                self.result['display_name'] = volume['displayname']
-            if 'group' in volume:
-                self.result['group'] = volume['group']
-            if 'domain' in volume:
-                self.result['domain'] = volume['domain']
-            if 'account' in volume:
-                self.result['account'] = volume['account']
-            if 'project' in volume:
-                self.result['project'] = volume['project']
-            if 'zonename' in volume:
-                self.result['zone'] = volume['zonename']
-            if 'created' in volume:
-                self.result['created'] = volume['created']
-            if 'attached' in volume:
-                self.result['attached'] = volume['attached']
-            if 'virtualmachineid' in volume:
-                self.result['vm_id'] = volume['virtualmachineid']
-            if 'vmdisplayname' in volume:
-                self.result['vm_display_name'] = volume['vmdisplayname']
-            if 'state' in volume:
-                self.result['state'] = volume['state']
-            if 'deviceid' in volume:
-                self.result['device_id'] = volume['deviceid']
-        return self.result
 
 
 def main():
