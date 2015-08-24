@@ -190,6 +190,11 @@ attached:
   returned: success
   type: string
   sample: 2014-12-01T14:57:57+0100
+type:
+  description: Disk volume type.
+  returned: success
+  type: string
+  sample: DATADISK
 vm_id:
   description: ID of the vm the volume is attached to (not returned when detached)
   returned: success
@@ -614,6 +619,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             'virtualmachineid': 'vm_id',
             'vmdisplayname':    'vm_display_name',
             'deviceid':         'device_id',
+            'type':             'type',
         }
         self.volume = None
 
@@ -624,6 +630,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
             args['projectid'] = self.get_project(key='id')
+            args['type'] = 'DATADISK'
 
             volumes = self.cs.listVolumes(**args)
 
