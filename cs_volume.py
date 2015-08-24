@@ -54,7 +54,7 @@ options:
       - Whether to display the volume to the end user or not.
       - Allowed to Root Admins only.
     required: false
-    default: false
+    default: true
   domain:
     description:
       - Name of the domain the volume to be deployed in.
@@ -744,7 +744,7 @@ def main():
             account = dict(default=None),
             custom_id = dict(default=None),
             disk_offering = dict(default=None),
-            display_volume = dict(choices=BOOLEANS, default=False),
+            display_volume = dict(choices=BOOLEANS, default=True),
             domain = dict(default=None),
             max_iops = dict(type='int', default=None),
             min_iops = dict(type='int', default=None),
