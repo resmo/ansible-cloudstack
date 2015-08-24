@@ -602,7 +602,7 @@ class AnsibleCloudStack(object):
 class AnsibleCloudStackVolume(AnsibleCloudStack):
 
     def __init__(self, module):
-        super(AnsibleCloudStackVolume, self).__init__()
+        super(AnsibleCloudStackVolume, self).__init__(module)
         self.returns = {
             'group':            'group',
             'attached':         'attached',
