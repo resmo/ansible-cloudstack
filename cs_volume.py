@@ -29,7 +29,8 @@ author: "Jefferson Girão (@jeffersongirao)"
 options:
   name:
     description:
-      - Name of the volume. C(name) can only contain ASCII letters.
+      - Name of the volume.
+      - C(name) can only contain ASCII letters.
     required: true
   account:
     description:
@@ -38,22 +39,25 @@ options:
     default: null
   custom_id:
     description:
-      - Custom id to the resource. Allowed to Root Admins only
+      - Custom id to the resource.
+      - Allowed to Root Admins only.
     required: false
     default: null
   disk_offering:
     description:
       - Name of the disk offering to be used.
+      - Required one of C(disk_offering), C(snapshot) if C(state=present).
     required: false
     default: null
   display_volume:
     description:
       - Whether to display the volume to the end user or not.
+      - Allowed to Root Admins only.
     required: false
     default: false
   domain:
     description:
-      - Name of the project the volume to be deployed in.
+      - Name of the domain the volume to be deployed in.
     required: false
     default: null
   max_iops:
@@ -80,16 +84,17 @@ options:
   snapshot_id:
     description:
       - The snapshot ID for the disk volume. Either C(disk_offering) or C(snapshot_id) must be passed in.
+      - C(vm) is required along with this argument.
     required: false
     default: null
   vm:
     description:
-      - Name of the virtual machine to attach the volume
+      - Name of the virtual machine to attach the volume.
     required: false
     default: null
   zone:
     description:
-      - Name of the zone in which the volume shoud be deployed.
+      - Name of the zone in which the volume should be deployed.
       - If not set, default zone is used.
     required: false
     default: null
