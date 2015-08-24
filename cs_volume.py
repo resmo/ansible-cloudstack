@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # (c) 2015, Jefferson Girão <jefferson@girao.net>
+# (c) 2015, René Moser <mail@renemoser.net>
 #
 # This file is part of Ansible
 #
@@ -25,7 +26,9 @@ short_description: Manages volumes on Apache CloudStack based clouds.
 description:
     - Create, destroy, attach, detach volumes.
 version_added: '2.0'
-author: "Jefferson Girão (@jeffersongirao)"
+author:
+    - "Jefferson Girão (@jeffersongirao)"
+    - "René Moser (@resmo)"
 options:
   name:
     description:
@@ -81,9 +84,10 @@ options:
       - Required on C(state=present).
     required: false
     default: null
-  snapshot_id:
+  snapshot:
     description:
-      - The snapshot ID for the disk volume. Either C(disk_offering) or C(snapshot_id) must be passed in.
+      - The snapshot for the disk volume.
+      - Required one of C(disk_offering), C(snapshot) if C(state=present).
       - C(vm) is required along with this argument.
     required: false
     default: null
@@ -643,7 +647,30 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         return self.volume
 
 
+    def get_snapshot(self, key=None):
+        snapshot = self.module.params.get('snapshot')
+        if not snapshot:
+            return None
+
+        args = {}
+        args['name'] = snapshot
+        args['virtualmachineid'] = self.get_vm('id')
+        args['account'] = self.get_account('name')
+        args['domainid'] = self.get_domain('id')
+        args['projectid'] = self.get_project('id')
+
+        snapshots = self.cs.listVMSnapshot(**args)
+        if snapshots:
+            return self._get_by_key(key, snapshots['vmSnapshot'][0])
+        self.module.fail_json(msg="Snapshot with name %s not found" % snapshot)
+
+
     def present_volume(self):
+        disk_offering_id = self.get_disk_offering(key='id')
+        snapshot_id = self.get_snapshot(key='id')
+        if not disk_offering_id and not snapshot_id:
+            self.module.fail_json(msg="Required one of: disk_offering,snapshot")
+
         volume = self.get_volume()
 
         if not volume:
@@ -653,13 +680,13 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['name'] = self.module.params.get('name')
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
-            args['diskofferingid'] = self.get_disk_offering(key='id')
+            args['diskofferingid'] = disk_offering_id
             args['displayvolume'] = self.module.params.get('display_volume')
             args['maxiops'] = self.module.params.get('max_iops')
             args['miniops'] = self.module.params.get('min_iops')
             args['projectid'] = self.get_project(key='id')
             args['size'] = self.module.params.get('size')
-            args['snapshotid'] = self.module.params.get('snapshot_id')
+            args['snapshotid'] = snapshot_id
             args['zoneid'] = self.get_zone(key='id')
 
             if not self.module.check_mode:
@@ -736,7 +763,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         return volume
 
 
-
 def main():
     module = AnsibleModule(
         argument_spec = dict(
@@ -750,7 +776,7 @@ def main():
             min_iops = dict(type='int', default=None),
             project = dict(default=None),
             size = dict(type='int', default=None),
-            snapshot_id = dict(default=None),
+            snapshot = dict(default=None),
             vm = dict(default=None),
             device_id = dict(type='int', default=None),
             zone = dict(default=None),
@@ -764,6 +790,10 @@ def main():
         ),
         required_together = (
             ['api_key', 'api_secret', 'api_url'],
+            ['vm', 'snapshot'],
+        ),
+        mutually_exclusive = (
+            ['snapshot', 'disk_offering'],
         ),
         supports_check_mode=True
     )
