@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # (c) 2015, Jefferson Girão <jefferson@girao.net>
+# (c) 2015, René Moser <mail@renemoser.net>
 #
 # This file is part of Ansible
 #
@@ -25,11 +26,14 @@ short_description: Manages volumes on Apache CloudStack based clouds.
 description:
     - Create, destroy, attach, detach volumes.
 version_added: '2.0'
-author: "Jefferson Girão (@jeffersongirao)"
+author:
+    - "Jefferson Girão (@jeffersongirao)"
+    - "René Moser (@resmo)"
 options:
   name:
     description:
-      - Name of the volume. C(name) can only contain ASCII letters.
+      - Name of the volume.
+      - C(name) can only contain ASCII letters.
     required: true
   account:
     description:
@@ -38,22 +42,25 @@ options:
     default: null
   custom_id:
     description:
-      - Custom id to the resource. Allowed to Root Admins only
+      - Custom id to the resource.
+      - Allowed to Root Admins only.
     required: false
     default: null
   disk_offering:
     description:
       - Name of the disk offering to be used.
+      - Required one of C(disk_offering), C(snapshot) if C(state=present).
     required: false
     default: null
   display_volume:
     description:
       - Whether to display the volume to the end user or not.
+      - Allowed to Root Admins only.
     required: false
-    default: false
+    default: true
   domain:
     description:
-      - Name of the project the volume to be deployed in.
+      - Name of the domain the volume to be deployed in.
     required: false
     default: null
   max_iops:
@@ -77,19 +84,21 @@ options:
       - Required on C(state=present).
     required: false
     default: null
-  snapshot_id:
+  snapshot:
     description:
-      - The snapshot ID for the disk volume. Either C(disk_offering) or C(snapshot_id) must be passed in.
+      - The snapshot for the disk volume.
+      - Required one of C(disk_offering), C(snapshot) if C(state=present).
+      - C(vm) is required along with this argument.
     required: false
     default: null
   vm:
     description:
-      - Name of the virtual machine to attach the volume
+      - Name of the virtual machine to attach the volume.
     required: false
     default: null
   zone:
     description:
-      - Name of the zone in which the volume shoud be deployed.
+      - Name of the zone in which the volume should be deployed.
       - If not set, default zone is used.
     required: false
     default: null
@@ -185,6 +194,11 @@ attached:
   returned: success
   type: string
   sample: 2014-12-01T14:57:57+0100
+type:
+  description: Disk volume type.
+  returned: success
+  type: string
+  sample: DATADISK
 vm_id:
   description: ID of the vm the volume is attached to (not returned when detached)
   returned: success
@@ -602,13 +616,14 @@ class AnsibleCloudStack(object):
 class AnsibleCloudStackVolume(AnsibleCloudStack):
 
     def __init__(self, module):
-        super(AnsibleCloudStackVolume, self).__init__()
+        super(AnsibleCloudStackVolume, self).__init__(module)
         self.returns = {
             'group':            'group',
             'attached':         'attached',
             'virtualmachineid': 'vm_id',
             'vmdisplayname':    'vm_display_name',
             'deviceid':         'device_id',
+            'type':             'type',
         }
         self.volume = None
 
@@ -619,6 +634,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
             args['projectid'] = self.get_project(key='id')
+            args['type'] = 'DATADISK'
 
             volumes = self.cs.listVolumes(**args)
 
@@ -631,7 +647,30 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         return self.volume
 
 
+    def get_snapshot(self, key=None):
+        snapshot = self.module.params.get('snapshot')
+        if not snapshot:
+            return None
+
+        args = {}
+        args['name'] = snapshot
+        args['virtualmachineid'] = self.get_vm('id')
+        args['account'] = self.get_account('name')
+        args['domainid'] = self.get_domain('id')
+        args['projectid'] = self.get_project('id')
+
+        snapshots = self.cs.listVMSnapshot(**args)
+        if snapshots:
+            return self._get_by_key(key, snapshots['vmSnapshot'][0])
+        self.module.fail_json(msg="Snapshot with name %s not found" % snapshot)
+
+
     def present_volume(self):
+        disk_offering_id = self.get_disk_offering(key='id')
+        snapshot_id = self.get_snapshot(key='id')
+        if not disk_offering_id and not snapshot_id:
+            self.module.fail_json(msg="Required one of: disk_offering,snapshot")
+
         volume = self.get_volume()
 
         if not volume:
@@ -641,13 +680,13 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['name'] = self.module.params.get('name')
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
-            args['diskofferingid'] = self.get_disk_offering(key='id')
+            args['diskofferingid'] = disk_offering_id
             args['displayvolume'] = self.module.params.get('display_volume')
             args['maxiops'] = self.module.params.get('max_iops')
             args['miniops'] = self.module.params.get('min_iops')
             args['projectid'] = self.get_project(key='id')
             args['size'] = self.module.params.get('size')
-            args['snapshotid'] = self.module.params.get('snapshot_id')
+            args['snapshotid'] = snapshot_id
             args['zoneid'] = self.get_zone(key='id')
 
             if not self.module.check_mode:
@@ -724,7 +763,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         return volume
 
 
-
 def main():
     module = AnsibleModule(
         argument_spec = dict(
@@ -732,13 +770,13 @@ def main():
             account = dict(default=None),
             custom_id = dict(default=None),
             disk_offering = dict(default=None),
-            display_volume = dict(choices=BOOLEANS, default=False),
+            display_volume = dict(choices=BOOLEANS, default=True),
             domain = dict(default=None),
             max_iops = dict(type='int', default=None),
             min_iops = dict(type='int', default=None),
             project = dict(default=None),
             size = dict(type='int', default=None),
-            snapshot_id = dict(default=None),
+            snapshot = dict(default=None),
             vm = dict(default=None),
             device_id = dict(type='int', default=None),
             zone = dict(default=None),
@@ -752,6 +790,10 @@ def main():
         ),
         required_together = (
             ['api_key', 'api_secret', 'api_url'],
+            ['vm', 'snapshot'],
+        ),
+        mutually_exclusive = (
+            ['snapshot', 'disk_offering'],
         ),
         supports_check_mode=True
     )

@@ -1,0 +1,61 @@
+---
+- name: setup
+  cs_volume: name={{ cs_resource_prefix }}_vol state=absent
+  register: vol
+- name: verify setup
+  assert:
+    that:
+    - vol|success
+
+- name: test fail if missing name
+  action: cs_volume
+  register: vol
+  ignore_errors: true
+- name: verify results of fail if missing name
+  assert:
+    that:
+    - vol|failed
+    - "vol.msg == 'missing required arguments: name'"
+
+- name: test create volume
+  cs_volume:
+    name: "{{ cs_resource_prefix }}_vol"
+    disk_offering: "{{ test_cs_disk_offering_1 }}"
+  register: vol
+- name: verify results test create volume
+  assert:
+    that:
+    - vol|changed
+    - vol.name == "{{ cs_resource_prefix }}_vol"
+
+- name: test create volume idempotence
+  cs_volume:
+    name: "{{ cs_resource_prefix }}_vol"
+    disk_offering: "{{ test_cs_disk_offering_1 }}"
+  register: vol
+- name: verify results test create volume idempotence
+  assert:
+    that:
+    - not vol|changed
+    - vol.name == "{{ cs_resource_prefix }}_vol"
+
+- name: test delete volume
+  cs_volume:
+    name: "{{ cs_resource_prefix }}_vol"
+    state: absent
+  register: vol
+- name: verify results test create volume
+  assert:
+    that:
+    - vol|changed
+    - vol.name == "{{ cs_resource_prefix }}_vol"
+
+- name: test delete volume idempotence
+  cs_volume:
+    name: "{{ cs_resource_prefix }}_vol"
+    state: absent
+  register: vol
+- name: verify results test delete volume idempotence
+  assert:
+    that:
+    - not vol|changed
