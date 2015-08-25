@@ -263,7 +263,8 @@ class AnsibleCloudStack(object):
                 method=api_http_method
                 )
         else:
-            self.cs = CloudStack(**read_config())
+            api_region = self.module.params.get('api_region', 'cloudstack')
+            self.cs = CloudStack(**read_config(api_region))
 
 
     def get_or_fallback(self, key=None, fallback_key=None):
@@ -283,11 +284,11 @@ class AnsibleCloudStack(object):
 
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
-                continue;
+                continue
 
             # Skip None values
             if value is None:
-                continue;
+                continue
 
             if key in current_dict:
 
@@ -529,6 +530,20 @@ class AnsibleCloudStack(object):
         return resource
 
 
+    def get_disk_offering(self, key=None):
+        disk_offering = self.module.params.get('disk_offering')
+
+        if not disk_offering:
+            return None
+
+        disk_offerings = self.cs.listDiskOfferings()
+        if disk_offerings:
+            for d in disk_offerings['diskoffering']:
+                if disk_offering in [d['displaytext'], d['name'], d['id']]:
+                    return self._get_by_key(key, d)
+        self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
+
+
     def get_capabilities(self, key=None):
         if self.capabilities:
             return self._get_by_key(key, self.capabilities)
@@ -537,7 +552,7 @@ class AnsibleCloudStack(object):
         return self._get_by_key(key, self.capabilities)
 
 
-    # TODO: for backward compatibility only, remove if not used anymore
+    # TODO: for backward compatibility only, remove it if not used anymore
     def _poll_job(self, job=None, key=None):
         return self.poll_job(job=job, key=key)
 
@@ -684,6 +699,7 @@ def main():
             api_url = dict(default=None),
             api_http_method = dict(choices=['get', 'post'], default='get'),
             api_timeout = dict(type='int', default=10),
+            api_region = dict(default='cloudstack'),
         ),
         required_together = (
             ['api_key', 'api_secret', 'api_url'],
