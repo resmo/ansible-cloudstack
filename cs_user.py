@@ -23,7 +23,7 @@ DOCUMENTATION = '''
 module: cs_user
 short_description: Manages users on Apache CloudStack based clouds.
 description:
-    - Create, disable, lock, enable and remove users.
+    - Create, update, disable, lock, enable and remove users.
 version_added: '2.0'
 author: "René Moser (@resmo)"
 options:
@@ -730,6 +730,11 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
             if 'errortext' in res:
                 self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
             user = res['user']
+            # register user api keys
+            res = self.cs.registerUserKeys(id=user['id'])
+            if 'errortext' in res:
+                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+            user.update(res['userkeys'])
         return user
 
 
@@ -747,6 +752,14 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
                 user = res['user']
+        # register user api keys
+        if 'apikey' not in user:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                res = self.cs.registerUserKeys(id=user['id'])
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                user.update(res['userkeys'])
         return user
 
 
