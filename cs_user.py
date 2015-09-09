@@ -33,38 +33,38 @@ options:
     required: true
   account:
     description:
-      - Account the user should be created under.
+      - Account the user will be created under.
       - Required on C(state=present).
     required: false
     default: null
   password:
     description:
-      - Password of the user to be created if user did not exist.
+      - Password of the user to be created.
       - Required on C(state=present).
       - Only considered on creation and will not be updated if user exists.
     required: false
     default: null
   first_name:
     description:
-      - First name of the user to be created if user did not exist.
+      - First name of the user.
       - Required on C(state=present).
     required: false
     default: null
   last_name:
     description:
-      - Last name of the user to be created if user did not exist.
+      - Last name of the user.
       - Required on C(state=present).
     required: false
     default: null
   email:
     description:
-      - Email of the user to be created if user did not exist.
+      - Email of the user.
       - Required on C(state=present).
     required: false
     default: null
   timezone:
     description:
-      - Timezone of the user to be created if user did not exist.
+      - Timezone of the user.
     required: false
     default: null
   domain:
@@ -602,12 +602,12 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
             'apikey':       'api_key',
             'timezone':     'timezone',
         }
-        self.user = None
         self.account_types = {
             'user':         0,
             'root_admin':   1,
             'domain_admin': 2,
         }
+        self.user = None
 
 
     def get_account_type(self):
@@ -717,7 +717,7 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
         self.result['changed'] = True
 
         args                = {}
-        args['account']     = self.module.params.get('account')
+        args['account']     = self.get_account(key='name')
         args['domainid']    = self.get_domain('id')
         args['username']    = self.module.params.get('username')
         args['password']    = self.module.params.get('password')
