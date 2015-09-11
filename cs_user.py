@@ -75,9 +75,10 @@ options:
   state:
     description:
       - State of the user.
+      - C(unlocked) is an alias for C(enabled).
     required: false
     default: 'present'
-    choices: [ 'present', 'absent', 'enabled', 'disabled', 'locked' ]
+    choices: [ 'present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked' ]
   poll_async:
     description:
       - Poll async jobs until job has finished.
@@ -112,7 +113,7 @@ local_action:
   domain: CUSTOMERS
   state: disabled
 
-# Enable an existing user in domain 'CUSTOMERS'
+# Enable/unlock an existing user in domain 'CUSTOMERS'
 local_action:
   module: cs_user
   username: johndoe
@@ -632,7 +633,7 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
     def enable_user(self):
         user = self.get_user()
         if not user:
-            self.module.fail_json(msg="Failed: User not present")
+            user = self.present_user()
 
         if user['state'].lower() != 'enabled':
             self.result['changed'] = True
@@ -648,9 +649,8 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
 
     def lock_user(self):
         user = self.get_user()
-
         if not user:
-            self.module.fail_json(msg="Failed: user not present")
+            user = self.present_user()
 
         # we need to enable the user to lock it.
         if user['state'].lower() == 'disabled':
@@ -672,9 +672,8 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
 
     def disable_user(self):
         user = self.get_user()
-
         if not user:
-            self.module.fail_json(msg="Failed: user not present")
+            user = self.present_user()
 
         if user['state'].lower() != 'disabled':
             self.result['changed'] = True
@@ -792,7 +791,7 @@ def main():
         argument_spec = dict(
             username = dict(required=True),
             account = dict(default=None),
-            state = dict(choices=['present', 'absent', 'enabled', 'disabled', 'locked' ], default='present'),
+            state = dict(choices=['present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked'], default='present'),
             domain = dict(default='ROOT'),
             email = dict(default=None),
             first_name = dict(default=None),
@@ -824,7 +823,7 @@ def main():
         if state in ['absent']:
             user = acs_acc.absent_user()
 
-        elif state in ['enabled']:
+        elif state in ['enabled', 'unlocked']:
             user = acs_acc.enable_user()
 
         elif state in ['disabled']:
