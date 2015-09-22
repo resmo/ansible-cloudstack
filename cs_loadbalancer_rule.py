@@ -27,13 +27,18 @@ description:
     - Add, update and remove load balancer rules.
 version_added: '2.0'
 author:
-    - "Darren Worrall @dazworrall"
+    - "Darren Worrall (@dazworrall)"
     - "René Moser (@resmo)"
 options:
   name:
     description:
       - The name of the load balancer rule.
     required: true
+  description:
+    description:
+      - The description of the load balancer rule.
+    required: false
+    default: null
   algorithm:
     description:
       - Load balancer algorithm
@@ -45,14 +50,14 @@ options:
     description:
       - The private port of the private ip address/virtual machine where the network traffic will be load balanced to.
       - Required when using C(state=present).
-      - Can not be updated after creation due API limitation.
+      - Can not be changed once the rule exists due API limitation.
     required: false
     default: null
   public_port:
     description:
       - The public port from where the network traffic will be load balanced from.
       - Required when using C(state=present).
-      - Can not be updated after creation due API limitation.
+      - Can not be changed once the rule exists due API limitation.
     required: true
     default: null
   public_ip:
@@ -111,17 +116,14 @@ EXAMPLES = '''
     public_port: 80
     private_port: 8080
 
-# Create a load balancer rule with members
+# update algorithm of an existing load balancer rule
 - local_action:
     module: cs_loadbalancer
     name: balance_http
     public_ip: 1.2.3.4
     algorithm: roundrobin
     public_port: 80
-    private_port: 80
-    members:
-    - web01
-    - web02
+    private_port: 8080
 
 # Delete a load balancer rule
 - local_action:
@@ -193,11 +195,6 @@ public_ip:
   returned: success
   type: string
   sample: "1.2.3.4"
-members:
-  description: List of member names of the rule.
-  returned: success
-  type: list
-  sample: [ "web01", "web02", "web03" ]
 tags:
   description: List of resource tags associated with the rule.
   returned: success
@@ -611,35 +608,12 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
             'publicip': 'public_ip',
             'algorithm': 'algorithm',
             'cidrlist': 'cidr',
-            'members': 'members',
         }
         # these values will be casted to int
         self.returns_to_int = {
             'publicport': 'public_port',
             'privateport': 'private_port',
         }
-
-
-    def get_ip_address(self, key=None, param_name='ip_address'):
-        if self.ip_address:
-            return self._get_by_key(key, self.ip_address)
-
-        ip_address = self.module.params.get(param_name)
-        if not ip_address:
-            self.module.fail_json(msg="IP address param '%s' is required" % param_name)
-
-        args = {}
-        args['ipaddress'] = ip_address
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
-        ip_addresses = self.cs.listPublicIpAddresses(**args)
-
-        if not ip_addresses:
-            self.module.fail_json(msg="IP address '%s' not found" % args['ipaddress'])
-
-        self.ip_address = ip_addresses['publicipaddress'][0]
-        return self._get_by_key(key, self.ip_address)
 
 
     def get_rule(self, **kwargs):
@@ -654,71 +628,9 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
             'domainid': self.get_domain(key='id'),
             'projectid': self.get_project(key='id'),
             'zoneid': self.get_zone(key='id'),
-            'publicipid': self.get_ip_address(key='id', param_name='public_ip'),
+            'publicipid': self.get_ip_address(key='id'),
             'name': self.module.params.get('name'),
         }
-
-
-    def get_wanted_members_ids(self, wanted_member_names):
-        wanted_members_id_list = []
-        args = {}
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
-        args['zoneid'] = self.get_zone(key='id')
-        res = self.cs.listVirtualMachines(**args)
-        for vm in res.get('virtualmachine', []):
-            if vm['name'] in wanted_member_names:
-                wanted_members_id_list.append(vm['id'])
-        if len(wanted_member_names) != len(wanted_members_id_list):
-            self.module.fail_json(msg="One or more members could not be found: %s" % ', '.join(wanted_member_names))
-        return wanted_members_id_list
-
-
-    def get_existing_member_ids(self, rule):
-        existing_members_id_list = []
-        args = {}
-        args['id'] = rule['id']
-        res = self.cs.listLoadBalancerRuleInstances(**args)
-        for vm in res.get('loadbalancerruleinstance', []):
-            existing_members_id_list.append(vm['id'])
-        return existing_members_id_list
-
-
-    def present_members(self, rule):
-        wanted_members_names = self.module.params.get('members')
-        if wanted_members_names is None:
-            return rule
-
-        wanted_members_ids   = self.get_wanted_members_ids(wanted_members_names)
-        existing_members_ids = self.get_existing_member_ids(rule)
-        member_ids_to_remove = list(set(existing_members_ids) - set(wanted_members_ids))
-        member_ids_to_assign = list(set(wanted_members_ids) - set(existing_members_ids))
-
-        args = {}
-        args['id'] = rule['id']
-
-        if member_ids_to_assign:
-            self.result['changed'] = True
-            args['virtualmachineids'] = ','.join(member_ids_to_assign)
-            res = self.cs.assignToLoadBalancerRule(**args)
-            if 'errortext' in res:
-                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-            poll_async = self.module.params.get('poll_async')
-            if poll_async:
-                res = self.poll_job(res, 'loadbalancerrule')
-
-        if member_ids_to_remove:
-            self.result['changed'] = True
-            args['virtualmachineids'] = ','.join(member_ids_to_remove)
-            res = self.cs.removeFromLoadBalancerRule(**args)
-            if 'errortext' in res:
-                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-            poll_async = self.module.params.get('poll_async')
-            if poll_async:
-                res = self.poll_job(res, 'loadbalancerrule')
-        rule['members'] = wanted_members_names
-        return rule
 
 
     def present_lb_rule(self):
@@ -742,7 +654,6 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
 
         if rule:
             rule = self.ensure_tags(resource=rule, resource_type='LoadBalancer')
-            rule = self.present_members(rule)
         return rule
 
 
@@ -798,16 +709,6 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
         return rule
 
 
-    def get_result(self, rule):
-        super(AnsibleCloudStackLBRule, self).get_result(rule)
-        if rule:
-            # Bad bad API does not always return int when it should.
-            for search_key, return_key in self.returns_to_int.iteritems():
-                if search_key in rule:
-                    self.result[return_key] = int(rule[search_key])
-        return self.result
-
-
 def main():
     module = AnsibleModule(
         argument_spec = dict(
@@ -817,15 +718,14 @@ def main():
             private_port = dict(type='int', required=False),
             public_port = dict(type='int', required=False),
             state = dict(choices=['present', 'absent'], default='present'),
-            public_ip = dict(required=True, aliases=['ip_address']),
+            ip_address = dict(required=True, aliases=['public_ip']),
             cidr = dict(required=False),
             project = dict(default=None, required=False),
             open_firewall = dict(choices=BOOLEANS, default=False),
-            tags = dict(type='list', aliases=[ 'tag' ], default=None),
+            tags = dict(type='list', aliases=['tag'], default=None),
             zone = dict(default=None),
             domain = dict(default=None),
             account = dict(default=None),
-            members = dict(type='list', aliases=[ 'member' ], default=None),
             poll_async = dict(choices=BOOLEANS, default=True),
             api_key = dict(default=None),
             api_secret = dict(default=None, no_log=True),

@@ -179,6 +179,19 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
+def cs_argument_spec():
+    return dict(
+        api_key = dict(default=None),
+        api_secret = dict(default=None, no_log=True),
+        api_url = dict(default=None),
+        api_http_method = dict(choices=['get', 'post'], default='get'),
+        api_timeout = dict(type='int', default=10),
+        api_region = dict(default='cloudstack'),
+    )
+
+def cs_required_together():
+    return [['api_key', 'api_secret', 'api_url']]
+
 class AnsibleCloudStack(object):
 
     def __init__(self, module):
@@ -207,6 +220,8 @@ class AnsibleCloudStack(object):
 
         # Init returns dict for use in subclasses
         self.returns = {}
+        # these values will be casted to int
+        self.returns_to_int = {}
 
         self.module = module
         self._connect()
@@ -220,6 +235,7 @@ class AnsibleCloudStack(object):
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
+        self.tags = None
 
 
     def _connect(self):
@@ -449,47 +465,44 @@ class AnsibleCloudStack(object):
 
 
     def get_tags(self, resource=None):
-        existing_tags = self.cs.listTags(resourceid=resource['id'])
-        if existing_tags:
-            return existing_tags['tag']
-        return []
+        if not self.tags:
+            args = {}
+            args['projectid'] = self.get_project(key='id')
+            args['account'] = self.get_account(key='name')
+            args['domainid'] = self.get_domain(key='id')
+            args['resourceid'] = resource['id']
+            response = self.cs.listTags(**args)
+            self.tags = response.get('tag', [])
+
+        existing_tags = []
+        if self.tags:
+            for tag in self.tags:
+                existing_tags.append({'key': tag['key'], 'value': tag['value']})
+        return existing_tags
 
 
-    def _delete_tags(self, resource, resource_type, tags):
-        existing_tags = resource['tags']
-        tags_to_delete = []
-        for existing_tag in existing_tags:
-            if existing_tag['key'] in tags:
-                if existing_tag['value'] != tags[key]:
-                    tags_to_delete.append(existing_tag)
-            else:
-                tags_to_delete.append(existing_tag)
-        if tags_to_delete:
+    def _process_tags(self, resource, resource_type, tags, operation="create"):
+        if tags:
             self.result['changed'] = True
             if not self.module.check_mode:
                 args = {}
                 args['resourceids']  = resource['id']
                 args['resourcetype'] = resource_type
-                args['tags']         = tags_to_delete
-                self.cs.deleteTags(**args)
+                args['tags']         = tags
+                if operation == "create":
+                    self.cs.createTags(**args)
+                else:
+                    self.cs.deleteTags(**args)
 
 
-    def _create_tags(self, resource, resource_type, tags):
-        tags_to_create = []
-        for i, tag_entry in enumerate(tags):
-            tag = {
-                'key':   tag_entry['key'],
-                'value': tag_entry['value'],
-            }
-            tags_to_create.append(tag)
-        if tags_to_create:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                args = {}
-                args['resourceids']  = resource['id']
-                args['resourcetype'] = resource_type
-                args['tags']         = tags_to_create
-                self.cs.createTags(**args)
+    def _tags_that_should_exist_or_be_updated(self, resource, tags):
+        existing_tags = self.get_tags(resource)
+        return [tag for tag in tags if tag not in existing_tags]
+
+
+    def _tags_that_should_not_exist(self, resource, tags):
+        existing_tags = self.get_tags(resource)
+        return [tag for tag in existing_tags if tag not in tags]
 
 
     def ensure_tags(self, resource, resource_type=None):
@@ -499,8 +512,9 @@ class AnsibleCloudStack(object):
         if 'tags' in resource:
             tags = self.module.params.get('tags')
             if tags is not None:
-                self._delete_tags(resource, resource_type, tags)
-                self._create_tags(resource, resource_type, tags)
+                self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
+                self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
+                self.tags = None
                 resource['tags'] = self.get_tags(resource)
         return resource
 
@@ -554,6 +568,11 @@ class AnsibleCloudStack(object):
                 if search_key in resource:
                     self.result[return_key] = resource[search_key]
 
+            # Bad bad API does not always return int when it should.
+            for search_key, return_key in self.returns_to_int.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = int(resource[search_key])
+
             # Special handling for tags
             if 'tags' in resource:
                 self.result['tags'] = []
@@ -604,7 +623,7 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
     def enable_account(self):
         account = self.get_account()
         if not account:
-            self.module.fail_json(msg="Failed: account not present")
+            account = self.present_account()
 
         if account['state'].lower() != 'enabled':
             self.result['changed'] = True
@@ -631,7 +650,7 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
     def lock_or_disable_account(self, lock=False):
         account = self.get_account()
         if not account:
-            self.module.fail_json(msg="Failed: account not present")
+            account = self.present_account()
 
         # we need to enable the account to lock it.
         if lock and account['state'].lower() == 'disabled':
@@ -660,21 +679,16 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
     def present_account(self):
         missing_params = []
 
-        if not self.module.params.get('email'):
-            missing_params.append('email')
-
-        if not self.module.params.get('username'):
-            missing_params.append('username')
-
-        if not self.module.params.get('password'):
-            missing_params.append('password')
-
-        if not self.module.params.get('first_name'):
-            missing_params.append('first_name')
-
-        if not self.module.params.get('last_name'):
-            missing_params.append('last_name')
-
+        missing_params = []
+        for required_params in [
+            'email',
+            'username',
+            'password',
+            'first_name',
+            'last_name',
+        ]:
+            if not self.module.params.get(required_params):
+                missing_params.append(required_params)
         if missing_params:
             self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
 
@@ -731,30 +745,25 @@ class AnsibleCloudStackAccount(AnsibleCloudStack):
 
 
 def main():
+    argument_spec = cs_argument_spec()
+    argument_spec.update(dict(
+        name = dict(required=True),
+        state = dict(choices=['present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked'], default='present'),
+        account_type = dict(choices=['user', 'root_admin', 'domain_admin'], default='user'),
+        network_domain = dict(default=None),
+        domain = dict(default='ROOT'),
+        email = dict(default=None),
+        first_name = dict(default=None),
+        last_name = dict(default=None),
+        username = dict(default=None),
+        password = dict(default=None),
+        timezone = dict(default=None),
+        poll_async = dict(choices=BOOLEANS, default=True),
+    ))
+
     module = AnsibleModule(
-        argument_spec = dict(
-            name = dict(required=True),
-            state = dict(choices=['present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked'], default='present'),
-            account_type = dict(choices=['user', 'root_admin', 'domain_admin'], default='user'),
-            network_domain = dict(default=None),
-            domain = dict(default='ROOT'),
-            email = dict(default=None),
-            first_name = dict(default=None),
-            last_name = dict(default=None),
-            username = dict(default=None),
-            password = dict(default=None),
-            timezone = dict(default=None),
-            poll_async = dict(choices=BOOLEANS, default=True),
-            api_key = dict(default=None),
-            api_secret = dict(default=None, no_log=True),
-            api_url = dict(default=None),
-            api_http_method = dict(choices=['get', 'post'], default='get'),
-            api_timeout = dict(type='int', default=10),
-            api_region = dict(default='cloudstack'),
-        ),
-        required_together = (
-            ['api_key', 'api_secret', 'api_url'],
-        ),
+        argument_spec=argument_spec,
+        required_together=cs_required_together(),
         supports_check_mode=True
     )
 
