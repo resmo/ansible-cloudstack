@@ -54,6 +54,7 @@ class AnsibleCloudStack(object):
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
+        self.tags = None
 
 
     def _connect(self):
@@ -283,22 +284,23 @@ class AnsibleCloudStack(object):
 
 
     def get_tags(self, resource=None):
-        args = {}
-        args['projectid'] = self.get_project(key='id')
-        args['domainid'] = self.get_domain(key='id')
-        args['resourceid'] = resource['id']
-
-        response = self.cs.listTags(**args)
+        if not self.tags:
+            args = {}
+            args['projectid'] = self.get_project(key='id')
+            args['account'] = self.get_account(key='name')
+            args['domainid'] = self.get_domain(key='id')
+            args['resourceid'] = resource['id']
+            response = self.cs.listTags(**args)
+            self.tags = response.get('tag', [])
 
         existing_tags = []
-
-        if response:
-            for tag in response['tag']:
+        if self.tags:
+            for tag in self.tags:
                 existing_tags.append({'key': tag['key'], 'value': tag['value']})
-
         return existing_tags
 
-    def _delete_tags(self, resource, resource_type, tags):
+
+    def _process_tags(self, resource, resource_type, tags, operation="create"):
         if tags:
             self.result['changed'] = True
             if not self.module.check_mode:
@@ -306,26 +308,21 @@ class AnsibleCloudStack(object):
                 args['resourceids']  = resource['id']
                 args['resourcetype'] = resource_type
                 args['tags']         = tags
-                self.cs.deleteTags(**args)
+                if operation == "create":
+                    self.cs.createTags(**args)
+                else:
+                    self.cs.deleteTags(**args)
 
-
-    def _create_tags(self, resource, resource_type, tags):
-        if tags:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                args = {}
-                args['resourceids']  = resource['id']
-                args['resourcetype'] = resource_type
-                args['tags']         = tags
-                self.cs.createTags(**args)
 
     def _tags_that_should_exist_or_be_updated(self, resource, tags):
         existing_tags = self.get_tags(resource)
         return [tag for tag in tags if tag not in existing_tags]
 
+
     def _tags_that_should_not_exist(self, resource, tags):
         existing_tags = self.get_tags(resource)
         return [tag for tag in existing_tags if tag not in tags]
+
 
     def ensure_tags(self, resource, resource_type=None):
         if not resource_type or not resource:
@@ -334,8 +331,9 @@ class AnsibleCloudStack(object):
         if 'tags' in resource:
             tags = self.module.params.get('tags')
             if tags is not None:
-                self._delete_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags))
-                self._create_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
+                self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
+                self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
+                self.tags = None
                 resource['tags'] = self.get_tags(resource)
         return resource
 
