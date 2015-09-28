@@ -46,6 +46,11 @@ options:
     required: false
     choices: [ 'source', 'roundrobin', 'leastconn' ]
     default: 'source'
+  protocol:
+    description:
+      - Protocol for the load balancer rule.
+    required: false
+    default: null
   private_port:
     description:
       - The private port of the private ip address/virtual machine where the network traffic will be load balanced to.
@@ -180,6 +185,11 @@ description:
   returned: success
   type: string
   sample: "http load balancer rule"
+protocol:
+  description: Protocol of the rule.
+  returned: success
+  type: string
+  sample: "tcp"
 public_port:
   description: Public port.
   returned: success
@@ -212,6 +222,21 @@ try:
     has_lib_cs = True
 except ImportError:
     has_lib_cs = False
+
+# import cloudstack common
+def cs_argument_spec():
+    return dict(
+        api_key = dict(default=None),
+        api_secret = dict(default=None, no_log=True),
+        api_url = dict(default=None),
+        api_http_method = dict(choices=['get', 'post'], default='get'),
+        api_timeout = dict(type='int', default=10),
+        api_region = dict(default='cloudstack'),
+    )
+
+def cs_required_together():
+    return [['api_key', 'api_secret', 'api_url']]
+
 
 # import cloudstack common
 class AnsibleCloudStack(object):
@@ -589,6 +614,11 @@ class AnsibleCloudStack(object):
                 if search_key in resource:
                     self.result[return_key] = resource[search_key]
 
+            # Bad bad API does not always return int when it should.
+            for search_key, return_key in self.returns_to_int.iteritems():
+                if search_key in resource:
+                    self.result[return_key] = int(resource[search_key])
+
             # Special handling for tags
             if 'tags' in resource:
                 self.result['tags'] = []
@@ -608,6 +638,7 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
             'publicip': 'public_ip',
             'algorithm': 'algorithm',
             'cidrlist': 'cidr',
+            'protocol': 'protocol',
         }
         # these values will be casted to int
         self.returns_to_int = {
@@ -666,6 +697,7 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
             args['publicport']  = self.module.params.get('public_port')
             args['cidrlist']    = self.module.params.get('cidr')
             args['description'] = self.module.params.get('description')
+            args['protocol']    = self.module.params.get('protocol')
             res = self.cs.createLoadBalancerRule(**args)
             if 'errortext' in res:
                 self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -710,33 +742,29 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
 
 
 def main():
+    argument_spec = cs_argument_spec()
+    argument_spec.update(dict(
+        name = dict(required=True),
+        description = dict(default=None),
+        algorithm = dict(choices=['source', 'roundrobin', 'leastconn'], default='source'),
+        private_port = dict(type='int', default=None),
+        public_port = dict(type='int', default=None),
+        protocol = dict(default=None),
+        state = dict(choices=['present', 'absent'], default='present'),
+        ip_address = dict(required=True, aliases=['public_ip']),
+        cidr = dict(default=None),
+        project = dict(default=None),
+        open_firewall = dict(choices=BOOLEANS, default=False),
+        tags = dict(type='list', aliases=['tag'], default=None),
+        zone = dict(default=None),
+        domain = dict(default=None),
+        account = dict(default=None),
+        poll_async = dict(choices=BOOLEANS, default=True),
+    ))
+
     module = AnsibleModule(
-        argument_spec = dict(
-            name = dict(required=True),
-            description = dict(default=None),
-            algorithm = dict(choices=['source', 'roundrobin', 'leastconn'], required=False, default='source'),
-            private_port = dict(type='int', required=False),
-            public_port = dict(type='int', required=False),
-            state = dict(choices=['present', 'absent'], default='present'),
-            ip_address = dict(required=True, aliases=['public_ip']),
-            cidr = dict(required=False),
-            project = dict(default=None, required=False),
-            open_firewall = dict(choices=BOOLEANS, default=False),
-            tags = dict(type='list', aliases=['tag'], default=None),
-            zone = dict(default=None),
-            domain = dict(default=None),
-            account = dict(default=None),
-            poll_async = dict(choices=BOOLEANS, default=True),
-            api_key = dict(default=None),
-            api_secret = dict(default=None, no_log=True),
-            api_url = dict(default=None),
-            api_http_method = dict(choices=['get', 'post'], default='get'),
-            api_timeout = dict(type='int', default=10),
-            api_region = dict(default='cloudstack'),
-        ),
-        required_together = (
-            ['api_key', 'api_secret', 'api_url'],
-        ),
+        argument_spec=argument_spec,
+        required_together=cs_required_together(),
         supports_check_mode=True
     )
 
