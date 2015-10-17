@@ -22,3 +22,4 @@
     - { role: test_cs_portforward,          tags: [ test_cs_portforward, cs_net_adv ] }
     - { role: test_cs_account,              tags: [ test_cs_account, cs_net_basic, simulator ] }
     - { role: test_cs_firewall,             tags: [ test_cs_firewall, cs_net_adv ] }
+    - { role: test_cs_loadbalancer_rule,    tags: [ test_cs_loadbalancer_rule, cs_lb_rule, cs_net_adv ] }
