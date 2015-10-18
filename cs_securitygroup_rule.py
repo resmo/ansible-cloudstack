@@ -521,25 +521,11 @@ class AnsibleCloudStack(object):
         if 'tags' in resource:
             tags = self.module.params.get('tags')
             if tags is not None:
-                self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
                 self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
+                self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
                 self.tags = None
                 resource['tags'] = self.get_tags(resource)
         return resource
-
-
-    def get_disk_offering(self, key=None):
-        disk_offering = self.module.params.get('disk_offering')
-
-        if not disk_offering:
-            return None
-
-        disk_offerings = self.cs.listDiskOfferings()
-        if disk_offerings:
-            for d in disk_offerings['diskoffering']:
-                if disk_offering in [d['displaytext'], d['name'], d['id']]:
-                    return self._get_by_key(key, d)
-        self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
 
 
     def get_capabilities(self, key=None):
@@ -550,7 +536,7 @@ class AnsibleCloudStack(object):
         return self._get_by_key(key, self.capabilities)
 
 
-    # TODO: for backward compatibility only, remove it if not used anymore
+    # TODO: for backward compatibility only, remove if not used anymore
     def _poll_job(self, job=None, key=None):
         return self.poll_job(job=job, key=key)
 
