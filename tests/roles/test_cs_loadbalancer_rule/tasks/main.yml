@@ -107,6 +107,16 @@
     - lb.public_port == 80
     - lb.private_port == 8080
 
+- name: test rule member requires params
+  cs_loadbalancer_rule_member:
+  ignore_errors: true
+  register: lb
+- name: verify test rule requires params
+  assert:
+    that:
+    - lb|failed
+    - "'vms,name' in lb.msg"
+
 - name: test add members to rule
   cs_loadbalancer_rule_member:
     name: "{{ cs_resource_prefix }}_lb"

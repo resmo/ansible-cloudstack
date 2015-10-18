@@ -21,10 +21,10 @@
 
 DOCUMENTATION = '''
 ---
-module: cs_loadbalancer_rule
-short_description: Manages load balancer rules on Apache CloudStack based clouds.
+module: cs_loadbalancer_rule_member
+short_description: Manages load balancer rule members on Apache CloudStack based clouds.
 description:
-    - Add, update and remove load balancer rules.
+    - Add and remove load balancer rule members.
 version_added: '2.0'
 author:
     - "Darren Worrall (@dazworrall)"
@@ -34,69 +34,30 @@ options:
     description:
       - The name of the load balancer rule.
     required: true
-  description:
-    description:
-      - The description of the load balancer rule.
-    required: false
-    default: null
-  algorithm:
-    description:
-      - Load balancer algorithm
-      - Required when using C(state=present).
-    required: false
-    choices: [ 'source', 'roundrobin', 'leastconn' ]
-    default: 'source'
-  protocol:
-    description:
-      - Protocol for the load balancer rule.
-    required: false
-    default: null
-  private_port:
-    description:
-      - The private port of the private ip address/virtual machine where the network traffic will be load balanced to.
-      - Required when using C(state=present).
-      - Can not be changed once the rule exists due API limitation.
-    required: false
-    default: null
-  public_port:
-    description:
-      - The public port from where the network traffic will be load balanced from.
-      - Required when using C(state=present).
-      - Can not be changed once the rule exists due API limitation.
-    required: true
-    default: null
   ip_address:
     description:
       - Public IP address from where the network traffic will be load balanced from.
-    required: true
+      - Only needed to find the rule if C(name) is not unique.
+    required: false
+    default: null
     aliases: [ 'public_ip' ]
-  open_firewall:
+  vms:
     description:
-      - Whether the firewall rule for public port should be created, while creating the new rule.
-      - Use M(cs_firewall) for managing firewall rules.
-    required: false
-    default: false
-  cidr:
-    description:
-    required: false
-    default: null
-  protocol:
-    description:
-      - The protocol to be used on the load balancer
-      - CIDR (full notation) to be used for firewall rule if required.
-    required: false
-    default: null
-  project:
-    description:
-      - Name of the project the load balancer IP address is related to.
-    required: false
-    default: null
+      - List of VMs to assign to or remove from the rule.
+    required: true
+    type: list
+    aliases: [ 'vm' ]
   state:
     description:
-      - State of the rule.
+      - Should the VMs be present or absent from the rule.
     required: true
     default: 'present'
     choices: [ 'present', 'absent' ]
+  project:
+    description:
+      - Name of the project the firewall rule is related to.
+    required: false
+    default: null
   domain:
     description:
       - Domain the rule is related to.
@@ -109,7 +70,7 @@ options:
     default: null
   zone:
     description:
-      - Name of the zone in which the rule shoud be created.
+      - Name of the zone in which the rule should be located.
       - If not set, default zone is used.
     required: false
     default: null
@@ -117,30 +78,42 @@ extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
-# Create a load balancer rule
+# Add VMs to an exising load balancer
 - local_action:
-    module: cs_loadbalancer_rule
+    module: cs_loadbalancer_rule_member
     name: balance_http
-    public_ip: 1.2.3.4
-    algorithm: leastconn
-    public_port: 80
-    private_port: 8080
+    vms:
+      - web01
+      - web02
 
-# update algorithm of an existing load balancer rule
+# Remove a VM from an existing load balancer
 - local_action:
-    module: cs_loadbalancer_rule
+    module: cs_loadbalancer_rule_member
     name: balance_http
-    public_ip: 1.2.3.4
-    algorithm: roundrobin
-    public_port: 80
-    private_port: 8080
-
-# Delete a load balancer rule
-- local_action:
-    module: cs_loadbalancer_rule
-    name: balance_http
-    public_ip: 1.2.3.4
+    vms:
+      - web01
+      - web02
     state: absent
+
+# Rolling upgrade of hosts
+- hosts: webservers
+  serial: 1
+  pre_tasks:
+    - name: Remove from load balancer
+      local_action:
+      module: cs_loadbalancer_rule_member
+      name: balance_http
+      vm: "{{ ansible_hostname }}"
+      state: absent
+  tasks:
+    # Perform update
+  post_tasks:
+    - name: Add to load balancer
+      local_action:
+      module: cs_loadbalancer_rule_member
+      name: balance_http
+      vm: "{{ ansible_hostname }}"
+      state: present
 '''
 
 RETURN = '''
@@ -210,6 +183,11 @@ public_ip:
   returned: success
   type: string
   sample: "1.2.3.4"
+vms:
+  description: Rule members.
+  returned: success
+  type: list
+  sample: '[ "web01", "web02" ]'
 tags:
   description: List of resource tags associated with the rule.
   returned: success
@@ -221,6 +199,7 @@ state:
   type: string
   sample: "Add"
 '''
+
 
 try:
     from cs import CloudStack, CloudStackException, read_config
@@ -620,10 +599,10 @@ class AnsibleCloudStack(object):
         return self.result
 
 
-class AnsibleCloudStackLBRule(AnsibleCloudStack):
+class AnsibleCloudStackLBRuleMember(AnsibleCloudStack):
 
     def __init__(self, module):
-        super(AnsibleCloudStackLBRule, self).__init__(module)
+        super(AnsibleCloudStackLBRuleMember, self).__init__(module)
         self.returns = {
             'publicip': 'public_ip',
             'algorithm': 'algorithm',
@@ -637,10 +616,18 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
         }
 
 
-    def get_rule(self, **kwargs):
-        rules = self.cs.listLoadBalancerRules(**kwargs)
+    def get_rule(self):
+        args               = self._get_common_args()
+        args['name']       = self.module.params.get('name')
+        args['zoneid']     = self.get_zone(key='id')
+        if self.module.params.get('ip_address'):
+            args['publicipid'] = self.get_ip_address(key='id')
+        rules = self.cs.listLoadBalancerRules(**args)
         if rules:
+            if len(rules['loadbalancerrule']) > 1:
+                self.module.fail_json(msg="More than one rule having name %s. Please pass 'ip_address' as well." % args['name'])
             return rules['loadbalancerrule'][0]
+        return None
 
 
     def _get_common_args(self):
@@ -648,106 +635,95 @@ class AnsibleCloudStackLBRule(AnsibleCloudStack):
             'account': self.get_account(key='name'),
             'domainid': self.get_domain(key='id'),
             'projectid': self.get_project(key='id'),
-            'zoneid': self.get_zone(key='id'),
-            'publicipid': self.get_ip_address(key='id'),
-            'name': self.module.params.get('name'),
         }
 
 
-    def present_lb_rule(self):
-        missing_params = []
-        for required_params in [
-            'algorithm',
-            'private_port',
-            'public_port',
-        ]:
-            if not self.module.params.get(required_params):
-                missing_params.append(required_params)
-        if missing_params:
-            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
+    def _get_members_of_rule(self, rule):
+        res = self.cs.listLoadBalancerRuleInstances(id=rule['id'])
+        if 'errortext' in res:
+            self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+        return res.get('loadbalancerruleinstance', [])
 
-        args = self._get_common_args()
-        rule = self.get_rule(**args)
-        if rule:
-            rule = self._update_lb_rule(rule)
+
+    def _ensure_members(self, operation):
+        if operation not in ['add', 'remove']:
+            self.module.fail_json(msg="Bad operation: %s" % operation)
+
+        rule = self.get_rule()
+        if not rule:
+            self.module.fail_json(msg="Unknown rule: %s" % self.module.params.get('name'))
+
+        existing = {}
+        for vm in self._get_members_of_rule(rule=rule):
+            existing[vm['name']] = vm['id']
+
+        wanted_names = self.module.params.get('vms')
+
+        if operation =='add':
+            cs_func = self.cs.assignToLoadBalancerRule
+            to_change = set(wanted_names) - set(existing.keys())
         else:
-            rule = self._create_lb_rule(rule)
+            cs_func = self.cs.removeFromLoadBalancerRule
+            to_change = set(wanted_names) & set(existing.keys())
 
-        if rule:
-            rule = self.ensure_tags(resource=rule, resource_type='LoadBalancer')
-        return rule
+        if not to_change:
+            return rule
 
-
-    def _create_lb_rule(self, rule):
-        self.result['changed'] = True
-        if not self.module.check_mode:
-            args = self._get_common_args()
-            args['algorithm']   = self.module.params.get('algorithm')
-            args['privateport'] = self.module.params.get('private_port')
-            args['publicport']  = self.module.params.get('public_port')
-            args['cidrlist']    = self.module.params.get('cidr')
-            args['description'] = self.module.params.get('description')
-            args['protocol']    = self.module.params.get('protocol')
-            res = self.cs.createLoadBalancerRule(**args)
-            if 'errortext' in res:
-                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-
-            poll_async = self.module.params.get('poll_async')
-            if poll_async:
-                rule = self.poll_job(res, 'loadbalancer')
-        return rule
-
-
-    def _update_lb_rule(self, rule):
-        args                = {}
-        args['id']          = rule['id']
-        args['algorithm']   = self.module.params.get('algorithm')
-        args['description'] = self.module.params.get('description')
-        if self.has_changed(args, rule):
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                res = self.cs.updateLoadBalancerRule(**args)
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-
-                poll_async = self.module.params.get('poll_async')
-                if poll_async:
-                    rule = self.poll_job(res, 'loadbalancer')
-        return rule
-
-
-    def absent_lb_rule(self):
         args = self._get_common_args()
-        rule = self.get_rule(**args)
-        if rule:
+        vms = self.cs.listVirtualMachines(**args)
+        to_change_ids = []
+        for name in to_change:
+            for vm in vms.get('virtualmachine', []):
+                if vm['name'] == name:
+                    to_change_ids.append(vm['id'])
+                    break
+            else:
+                self.module.fail_json(msg="Unknown VM: %s" % name)
+
+        if to_change_ids:
             self.result['changed'] = True
-        if rule and not self.module.check_mode:
-            res = self.cs.deleteLoadBalancerRule(id=rule['id'])
+
+        if to_change_ids and not self.module.check_mode:
+            res = cs_func(
+                id = rule['id'],
+                virtualmachineids = to_change_ids,
+            )
             if 'errortext' in res:
                 self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                res = self._poll_job(res, 'loadbalancer')
+                self.poll_job(res)
+                rule = self.get_rule()
         return rule
+
+
+    def add_members(self):
+        return self._ensure_members('add')
+
+
+    def remove_members(self):
+        return self._ensure_members('remove')
+
+
+    def get_result(self, rule):
+        super(AnsibleCloudStackLBRuleMember, self).get_result(rule)
+        if rule:
+            self.result['vms'] = []
+            for vm in self._get_members_of_rule(rule=rule):
+                self.result['vms'].append(vm['name'])
+        return self.result
 
 
 def main():
     argument_spec = cs_argument_spec()
     argument_spec.update(dict(
         name = dict(required=True),
-        description = dict(default=None),
-        algorithm = dict(choices=['source', 'roundrobin', 'leastconn'], default='source'),
-        private_port = dict(type='int', default=None),
-        public_port = dict(type='int', default=None),
-        protocol = dict(default=None),
+        ip_address = dict(default=None, aliases=['public_ip']),
+        vms = dict(required=True, aliases=['vm'], type='list'),
         state = dict(choices=['present', 'absent'], default='present'),
-        ip_address = dict(required=True, aliases=['public_ip']),
-        cidr = dict(default=None),
-        project = dict(default=None),
-        open_firewall = dict(choices=BOOLEANS, default=False),
-        tags = dict(type='list', aliases=['tag'], default=None),
         zone = dict(default=None),
         domain = dict(default=None),
+        project = dict(default=None),
         account = dict(default=None),
         poll_async = dict(choices=BOOLEANS, default=True),
     ))
@@ -762,15 +738,15 @@ def main():
         module.fail_json(msg="python library cs required: pip install cs")
 
     try:
-        acs_lb_rule = AnsibleCloudStackLBRule(module)
+        acs_lb_rule_member = AnsibleCloudStackLBRuleMember(module)
 
         state = module.params.get('state')
         if state in ['absent']:
-            rule = acs_lb_rule.absent_lb_rule()
+            rule = acs_lb_rule_member.remove_members()
         else:
-            rule = acs_lb_rule.present_lb_rule()
+            rule = acs_lb_rule_member.add_members()
 
-        result = acs_lb_rule.get_result(rule)
+        result = acs_lb_rule_member.get_result(rule)
 
     except CloudStackException, e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
