@@ -78,12 +78,12 @@ options:
     default: false
   cidr:
     description:
+      - CIDR (full notation) to be used for firewall rule if required.
     required: false
     default: null
   protocol:
     description:
       - The protocol to be used on the load balancer
-      - CIDR (full notation) to be used for firewall rule if required.
     required: false
     default: null
   project:
@@ -345,7 +345,9 @@ class AnsibleCloudStack(object):
         return False
 
 
-    def _get_by_key(self, key=None, my_dict={}):
+    def _get_by_key(self, key=None, my_dict=None):
+        if my_dict is None:
+            my_dict = {}
         if key:
             if key in my_dict:
                 return my_dict[key]
@@ -540,9 +542,10 @@ class AnsibleCloudStack(object):
                 args['resourcetype'] = resource_type
                 args['tags']         = tags
                 if operation == "create":
-                    self.cs.createTags(**args)
+                    response = self.cs.createTags(**args)
                 else:
-                    self.cs.deleteTags(**args)
+                    response = self.cs.deleteTags(**args)
+                self.poll_job(response)
 
 
     def _tags_that_should_exist_or_be_updated(self, resource, tags):
@@ -562,8 +565,8 @@ class AnsibleCloudStack(object):
         if 'tags' in resource:
             tags = self.module.params.get('tags')
             if tags is not None:
-                self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
                 self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
+                self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
                 self.tags = None
                 resource['tags'] = self.get_tags(resource)
         return resource
@@ -618,7 +621,6 @@ class AnsibleCloudStack(object):
                     result_tag['value'] = tag['value']
                     self.result['tags'].append(result_tag)
         return self.result
-
 
 class AnsibleCloudStackLBRule(AnsibleCloudStack):
 

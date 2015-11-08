@@ -86,14 +86,13 @@ options:
     default: null
   snapshot:
     description:
-      - The snapshot for the disk volume.
+      - The snapshot name for the disk volume.
       - Required one of C(disk_offering), C(snapshot) if C(state=present).
-      - C(vm) is required along with this argument.
     required: false
     default: null
   vm:
     description:
-      - Name of the virtual machine to attach the volume.
+      - Name of the virtual machine to attach the volume to.
     required: false
     default: null
   zone:
@@ -199,11 +198,11 @@ type:
   returned: success
   type: string
   sample: DATADISK
-vm_id:
-  description: ID of the vm the volume is attached to (not returned when detached)
+size:
+  description: Size of disk volume.
   returned: success
   type: string
-  sample: 3d6d6e63-cf6b-4277-9daf-426602306187
+  sample: 20
 vm_display_name:
   description: Name of the vm the volume is attached to (not returned when detached)
   returned: success
@@ -624,6 +623,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             'vmdisplayname':    'vm_display_name',
             'deviceid':         'device_id',
             'type':             'type',
+            'size':             'size',
         }
         self.volume = None
 
@@ -654,14 +654,13 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
 
         args = {}
         args['name'] = snapshot
-        args['virtualmachineid'] = self.get_vm('id')
         args['account'] = self.get_account('name')
         args['domainid'] = self.get_domain('id')
         args['projectid'] = self.get_project('id')
 
-        snapshots = self.cs.listVMSnapshot(**args)
+        snapshots = self.cs.listSnapshots(**args)
         if snapshots:
-            return self._get_by_key(key, snapshots['vmSnapshot'][0])
+            return self._get_by_key(key, snapshots['snapshot'][0])
         self.module.fail_json(msg="Snapshot with name %s not found" % snapshot)
 
 
@@ -702,7 +701,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
     def attached_volume(self):
         volume = self.present_volume()
 
-        if 'virtualmachineid' in volume and volume['virtualmachineid'] != self.get_vm(key='id'):
+        if volume.get('virtualmachineid') != self.get_vm(key='id'):
             self.result['changed'] = True
 
             if not self.module.check_mode:
@@ -782,16 +781,9 @@ def main():
             zone = dict(default=None),
             state = dict(choices=['present', 'absent', 'attached', 'detached'], default='present'),
             poll_async = dict(choices=BOOLEANS, default=True),
-            api_key = dict(default=None),
-            api_secret = dict(default=None, no_log=True),
-            api_url = dict(default=None),
-            api_http_method = dict(choices=['get', 'post'], default='get'),
-            api_timeout = dict(type='int', default=10),
-            api_region = dict(default='cloudstack'),
         ),
         required_together = (
             ['api_key', 'api_secret', 'api_url'],
-            ['vm', 'snapshot'],
         ),
         mutually_exclusive = (
             ['snapshot', 'disk_offering'],
