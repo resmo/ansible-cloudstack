@@ -90,6 +90,12 @@ options:
       - Required one of C(disk_offering), C(snapshot) if C(state=present).
     required: false
     default: null
+  force:
+    description:
+      - Force removal of volume even it is attached to a VM.
+      - Considered on C(state=absnet) only.
+    required: false
+    default: false
   vm:
     description:
       - Name of the virtual machine to attach the volume to.
@@ -748,6 +754,12 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         volume = self.get_volume()
 
         if volume:
+            if 'attached' in volume:
+                if self.module.param.get('force'):
+                    self.detached_volume()
+                else:
+                    self.module.fail_json(msg="Volume '%s' is attached, use force=true for detaching and removing the volume." % volume.get('name'))
+
             self.result['changed'] = True
             if not self.module.check_mode:
                 volume = self.detached_volume()
@@ -779,6 +791,7 @@ def main():
             vm = dict(default=None),
             device_id = dict(type='int', default=None),
             zone = dict(default=None),
+            force = dict(choices=BOOLEANS, default=False),
             state = dict(choices=['present', 'absent', 'attached', 'detached'], default='present'),
             poll_async = dict(choices=BOOLEANS, default=True),
         ),
