@@ -212,7 +212,7 @@ state:
   description: State of the volume
   returned: success
   type: string
-  sample: Running
+  sample: Attached
 device_id:
   description: Id of the device on user vm the volume is attached to (not returned when detached)
   returned: success
