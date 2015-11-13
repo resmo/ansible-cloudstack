@@ -1,0 +1,101 @@
+---
+- name: setup zone is absent
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+  register: zone
+- name: verify setup zone is absent
+  assert:
+    that:
+      - zone|success
+
+- name: test fail if missing name
+  cs_zone:
+  register: zone
+  ignore_errors: true
+- name: verify results of fail if missing name
+  assert:
+    that:
+      - zone|failed
+      - "zone.msg == 'missing required arguments: name'"
+
+- name: test create zone
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+  register: zone
+- name: verify test create zone
+  assert:
+    that:
+      - zone|changed
+
+- name: test create zone idempotence
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+  register: zone
+- name: verify test create zone idempotence
+  assert:
+    that:
+      - not zone|changed
+
+- name: test disable zone
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: disabled
+  register: zone
+- name: verify test disable zone
+  assert:
+    that:
+      - zone|changed
+      - zone.state == "disabled"
+
+- name: test disable zone idempotence
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: disabled
+  register: zone
+- name: verify test disable zone idempotence
+  assert:
+    that:
+      - not zone|changed
+      - zone.state == "disabled"
+
+- name: test enable zone
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: enabled
+  register: zone
+- name: verify test enable zone
+  assert:
+    that:
+      - zone|changed
+      - zone.state == "enabled"
+
+- name: test enable zone idempotence
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: enabled
+  register: zone
+- name: verify test enable zone idempotence
+  assert:
+    that:
+      - not zone|changed
+      - zone.state == "enabled"
+
+- name: test absent zone
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: absent
+  register: zone
+- name: verify test create zone
+  assert:
+    that:
+      - zone|changed
+
+- name: test absent zone idempotence
+  cs_zone:
+    name: "{{ cs_resource_prefix }}-zone"
+    state: absent
+  register: zone
+- name: verify test absent zone idempotence
+  assert:
+    that:
+      - not zone|changed
