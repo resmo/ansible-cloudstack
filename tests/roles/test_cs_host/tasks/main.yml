@@ -1,0 +1,137 @@
+---
+- name: setup host is absent
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+  register: host
+- name: verify setup host is absent
+  assert:
+    that:
+      - host|success
+
+- name: test fail if missing name
+  cs_host:
+  register: host
+  ignore_errors: true
+- name: verify results of fail if missing name
+  assert:
+    that:
+      - host|failed
+      - "host.msg == 'missing required arguments: name,pod,url,username,password'"
+
+- name: test create host
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    pod: "{{ test_cs_host_pod }}"
+    username: "{{ test_cs_host_username }}"
+    password: "{{ test_cs_host_password }}"
+    url: "{{ test_cs_host_url }}"
+  register: host
+- name: verify test create host
+  assert:
+    that:
+      - host|changed
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test create host idempotence
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+  register: host
+- name: verify test create host idempotence
+  assert:
+    that:
+      - not host|changed
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test disable host
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: disabled
+  register: host
+- name: verify test disable host
+  assert:
+    that:
+      - host|changed
+      - host.state == "disabled"
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test disable host idempotence
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: disabled
+  register: host
+- name: verify test disable host idempotence
+  assert:
+    that:
+      - not host|changed
+      - host.state == "disabled"
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test enable host
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: enabled
+  register: host
+- name: verify test enable host
+  assert:
+    that:
+      - host|changed
+      - host.state == "enabled"
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test enable host idempotence
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: enabled
+  register: host
+- name: verify test enable host idempotence
+  assert:
+    that:
+      - not host|changed
+      - host.state == "enabled"
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test absent host
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: absent
+  register: host
+- name: verify test create host
+  assert:
+    that:
+      - host|changed
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"
+
+- name: test absent host idempotence
+  cs_host:
+    name: "{{ cs_resource_prefix }}-host"
+    state: absent
+  register: host
+- name: verify test absent host idempotence
+  assert:
+    that:
+      - not host|changed
+      - host.pod == "{{ test_cs_host_pod }}"
+      - host.username == "{{ test_cs_host_username }}"
+      - host.password == "{{ test_cs_host_password }}"
+      - host.url == "{{ test_cs_host_url }}"

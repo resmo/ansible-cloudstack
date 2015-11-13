@@ -1,0 +1,5 @@
+---
+test_cs_host_pod: my_pod
+test_cs_host_username: username
+test_cs_host_password: password
+test_cs_host_url: url
