@@ -642,6 +642,22 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         }
         self.volume = None
 
+    #TODO implement in cloudstack utils
+    def get_disk_offering(self, key=None):
+        disk_offering = self.module.params.get('disk_offering')
+        if not disk_offering:
+            return None
+
+        args = {}
+        args['domainid'] = self.get_domain(key='id')
+
+        disk_offerings = self.cs.listDiskOfferings(**args)
+        if disk_offerings:
+            for d in disk_offerings['diskoffering']:
+                if disk_offering in [d['displaytext'], d['name'], d['id']]:
+                    return self._get_by_key(key, d)
+        self.module.fail_json(msg="Disk offering '%s' not found" % disk_offering)
+
 
     def get_volume(self):
         if not self.volume:
@@ -652,7 +668,6 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
             args['type'] = 'DATADISK'
 
             volumes = self.cs.listVolumes(**args)
-
             if volumes:
                 volume_name = self.module.params.get('name')
                 for v in volumes['volume']:
@@ -682,6 +697,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
     def present_volume(self):
         disk_offering_id = self.get_disk_offering(key='id')
         snapshot_id = self.get_snapshot(key='id')
+
         if not disk_offering_id and not snapshot_id:
             self.module.fail_json(msg="Required one of: disk_offering,snapshot")
 
