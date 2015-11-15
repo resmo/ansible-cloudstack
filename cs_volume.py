@@ -209,7 +209,7 @@ size:
   returned: success
   type: string
   sample: 20
-vm_display_name:
+vm:
   description: Name of the vm the volume is attached to (not returned when detached)
   returned: success
   type: string
@@ -634,8 +634,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         self.returns = {
             'group':            'group',
             'attached':         'attached',
-            'virtualmachineid': 'vm_id',
-            'vmdisplayname':    'vm_display_name',
+            'vmname':           'vm',
             'deviceid':         'device_id',
             'type':             'type',
             'size':             'size',
