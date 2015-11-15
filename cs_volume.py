@@ -694,15 +694,14 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
 
 
     def present_volume(self):
-        disk_offering_id = self.get_disk_offering(key='id')
-        snapshot_id = self.get_snapshot(key='id')
-
-        if not disk_offering_id and not snapshot_id:
-            self.module.fail_json(msg="Required one of: disk_offering,snapshot")
-
         volume = self.get_volume()
-
         if not volume:
+            disk_offering_id = self.get_disk_offering(key='id')
+            snapshot_id = self.get_snapshot(key='id')
+
+            if not disk_offering_id and not snapshot_id:
+                self.module.fail_json(msg="Required one of: disk_offering,snapshot")
+
             self.result['changed'] = True
 
             args = {}
