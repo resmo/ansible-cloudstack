@@ -49,7 +49,7 @@ options:
   disk_offering:
     description:
       - Name of the disk offering to be used.
-      - Required one of C(disk_offering), C(snapshot) if C(state=present).
+      - Required one of C(disk_offering), C(snapshot) if volume is not already C(state=present).
     required: false
     default: null
   display_volume:
@@ -81,13 +81,12 @@ options:
   size:
     description:
       - Size of disk in GB
-      - Required on C(state=present).
     required: false
     default: null
   snapshot:
     description:
       - The snapshot name for the disk volume.
-      - Required one of C(disk_offering), C(snapshot) if C(state=present).
+      - Required one of C(disk_offering), C(snapshot) if volume is not already C(state=present).
     required: false
     default: null
   force:
@@ -232,6 +231,7 @@ try:
 except ImportError:
     has_lib_cs = False
 
+# import cloudstack common
 def cs_argument_spec():
     return dict(
         api_key = dict(default=None),
@@ -245,7 +245,6 @@ def cs_argument_spec():
 def cs_required_together():
     return [['api_key', 'api_secret', 'api_url']]
 
-# import cloudstack common
 class AnsibleCloudStack(object):
 
     def __init__(self, module):
@@ -755,7 +754,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
 
 
     def detached_volume(self):
-        volume = self.get_volume()
+        volume = self.present_volume()
 
         if volume:
             if 'attached' not in volume:
@@ -779,16 +778,14 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         if volume:
             if 'attached' in volume:
                 if self.module.param.get('force'):
-                    self.detached_volume()
+                    volume = self.detached_volume()
                 else:
                     self.module.fail_json(msg="Volume '%s' is attached, use force=true for detaching and removing the volume." % volume.get('name'))
 
             self.result['changed'] = True
             if not self.module.check_mode:
-                volume = self.detached_volume()
-
                 res = self.cs.deleteVolume(id=volume['id'])
-                if 'errortext' in volume:
+                if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
