@@ -23,7 +23,7 @@ DOCUMENTATION = '''
 module: cs_instance
 short_description: Manages instances and virtual machines on Apache CloudStack based clouds.
 description:
-    - Deploy, start, update, scale, restart, stop and destroy instances.
+    - Deploy, start, update, scale, restart, restore, stop and destroy instances.
 version_added: '2.0'
 author: "René Moser (@resmo)"
 options:
@@ -44,9 +44,10 @@ options:
   state:
     description:
       - State of the instance.
+      - C(restored) added in version 2.1.
     required: false
     default: 'present'
-    choices: [ 'deployed', 'started', 'stopped', 'restarted', 'destroyed', 'expunged', 'present', 'absent' ]
+    choices: [ 'deployed', 'started', 'stopped', 'restarted', 'restored', 'destroyed', 'expunged', 'present', 'absent' ]
   service_offering:
     description:
       - Name or id of the service offering of the new instance.
@@ -885,6 +886,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         break
         return self.instance
 
+
     def get_iptonetwork_mappings(self):
         network_mappings = self.module.params.get('ip_to_networks')
         if network_mappings is None:
@@ -899,6 +901,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         for i, data in enumerate(network_mappings):
             res.append({'networkid': ids[i], 'ip': data['ip']})
         return res
+
 
     def get_network_ids(self, network_names=None):
         if network_names is None:
@@ -952,6 +955,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             user_data = base64.b64encode(user_data)
         return user_data
 
+
     def get_details(self):
         res = None
         cpu = self.module.params.get('cpu')
@@ -964,6 +968,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                 'memory': memory,
             }]
         return res
+
 
     def deploy_instance(self, start_vm=True):
         self.result['changed'] = True
@@ -1189,6 +1194,28 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         return instance
 
 
+    def restore_instance(self):
+        instance = self.get_instance()
+
+        if not instance:
+            instance = self.deploy_instance()
+            return instance
+
+        self.result['changed'] = True
+
+        args = {}
+        args['templateid'] = self.get_template_or_iso(key='id')
+        args['virtualmachineid'] = instance['id']
+        res = self.cs.restoreVirtualMachine(**args)
+        if 'errortext' in res:
+            self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+
+        poll_async = self.module.params.get('poll_async')
+        if poll_async:
+            instance = self._poll_job(res, 'virtualmachine')
+        return instance
+
+
     def get_result(self, instance):
         super(AnsibleCloudStackInstance, self).get_result(instance)
         if instance:
@@ -1208,13 +1235,14 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         self.result['default_ip'] = nic['ipaddress']
         return self.result
 
+
 def main():
     argument_spec = cs_argument_spec()
     argument_spec.update(dict(
         name = dict(required=True),
         display_name = dict(default=None),
         group = dict(default=None),
-        state = dict(choices=['present', 'deployed', 'started', 'stopped', 'restarted', 'absent', 'destroyed', 'expunged'], default='present'),
+        state = dict(choices=['present', 'deployed', 'started', 'stopped', 'restarted', 'restored', 'absent', 'destroyed', 'expunged'], default='present'),
         service_offering = dict(default=None),
         cpu = dict(default=None, type='int'),
         cpu_speed = dict(default=None, type='int'),
@@ -1270,6 +1298,9 @@ def main():
 
         elif state in ['expunged']:
             instance = acs_instance.expunge_instance()
+
+        elif state in ['restored']:
+            instance = acs_instance.restore_instance()
 
         elif state in ['present', 'deployed']:
             instance = acs_instance.present_instance()
