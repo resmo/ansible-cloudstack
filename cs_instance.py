@@ -819,7 +819,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         iso = self.module.params.get('iso')
 
         if not template and not iso:
-            self.module.fail_json(msg="Template or ISO is required.")
+            return None
 
         args                = {}
         args['account']     = self.get_account(key='name')
@@ -978,6 +978,9 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
         args                        = {}
         args['templateid']          = self.get_template_or_iso(key='id')
+        if not args['templateid']:
+            self.module.fail_json(msg="Template or ISO is required.")
+
         args['zoneid']              = self.get_zone(key='id')
         args['serviceofferingid']   = self.get_service_offering_id()
         args['account']             = self.get_account(key='name')
