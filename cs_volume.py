@@ -650,11 +650,8 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         disk_offering = self.module.params.get('disk_offering')
         if not disk_offering:
             return None
-
-        args = {}
-        args['domainid'] = self.get_domain(key='id')
-
-        disk_offerings = self.cs.listDiskOfferings(**args)
+        # Do not add domain filter for disk offering listing.
+        disk_offerings = self.cs.listDiskOfferings()
         if disk_offerings:
             for d in disk_offerings['diskoffering']:
                 if disk_offering in [d['displaytext'], d['name'], d['id']]:
