@@ -25,7 +25,7 @@ module: cs_volume
 short_description: Manages volumes on Apache CloudStack based clouds.
 description:
     - Create, destroy, attach, detach volumes.
-version_added: '2.0'
+version_added: "2.1"
 author:
     - "Jefferson Girão (@jeffersongirao)"
     - "René Moser (@resmo)"
@@ -650,6 +650,7 @@ class AnsibleCloudStackVolume(AnsibleCloudStack):
         disk_offering = self.module.params.get('disk_offering')
         if not disk_offering:
             return None
+
         # Do not add domain filter for disk offering listing.
         disk_offerings = self.cs.listDiskOfferings()
         if disk_offerings:
@@ -832,7 +833,7 @@ def main():
     argument_spec.update(dict(
         name = dict(required=True),
         disk_offering = dict(default=None),
-        display_volume = dict(choices=BOOLEANS, default=True),
+        display_volume = dict(type='bool', default=None),
         max_iops = dict(type='int', default=None),
         min_iops = dict(type='int', default=None),
         size = dict(type='int', default=None),
