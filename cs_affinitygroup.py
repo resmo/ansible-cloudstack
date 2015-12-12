@@ -587,7 +587,7 @@ class AnsibleCloudStackAffinityGroup(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    affinity_group = self._poll_job(res, 'affinitygroup')
+                    affinity_group = self.poll_job(res, 'affinitygroup')
         return affinity_group
 
 
@@ -610,7 +610,7 @@ class AnsibleCloudStackAffinityGroup(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    res = self._poll_job(res, 'affinitygroup')
+                    res = self.poll_job(res, 'affinitygroup')
         return affinity_group
 
 
@@ -624,7 +624,7 @@ def main():
         domain = dict(default=None),
         account = dict(default=None),
         project = dict(default=None),
-        poll_async = dict(choices=BOOLEANS, default=True),
+        poll_async = dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
@@ -647,7 +647,7 @@ def main():
 
         result = acs_ag.get_result(affinity_group)
 
-    except CloudStackException, e:
+    except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)

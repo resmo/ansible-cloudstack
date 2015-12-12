@@ -694,7 +694,7 @@ class AnsibleCloudStackUser(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    user = self._poll_job(user, 'user')
+                    user = self.poll_job(user, 'user')
         return user
 
 
@@ -806,7 +806,7 @@ def main():
         last_name = dict(default=None),
         password = dict(default=None),
         timezone = dict(default=None),
-        poll_async = dict(choices=BOOLEANS, default=True),
+        poll_async = dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
@@ -840,7 +840,7 @@ def main():
 
         result = acs_acc.get_result(user)
 
-    except CloudStackException, e:
+    except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)

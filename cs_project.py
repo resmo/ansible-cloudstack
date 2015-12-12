@@ -566,7 +566,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
         args['id']          = project['id']
         args['displaytext'] = self.get_or_fallback('display_text', 'name')
 
-        if self._has_changed(args, project):
+        if self.has_changed(args, project):
             self.result['changed'] = True
             if not self.module.check_mode:
                 project = self.cs.updateProject(**args)
@@ -576,7 +576,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if project and poll_async:
-                    project = self._poll_job(project, 'project')
+                    project = self.poll_job(project, 'project')
         return project
 
 
@@ -597,7 +597,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if project and poll_async:
-                project = self._poll_job(project, 'project')
+                project = self.poll_job(project, 'project')
         return project
 
 
@@ -624,7 +624,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if project and poll_async:
-                    project = self._poll_job(project, 'project')
+                    project = self.poll_job(project, 'project')
         return project
 
 
@@ -644,7 +644,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    res = self._poll_job(res, 'project')
+                    res = self.poll_job(res, 'project')
             return project
 
 
@@ -657,7 +657,7 @@ def main():
         state = dict(choices=['present', 'absent', 'active', 'suspended' ], default='present'),
         domain = dict(default=None),
         account = dict(default=None),
-        poll_async = dict(type='bool', choices=BOOLEANS, default=True),
+        poll_async = dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
@@ -684,7 +684,7 @@ def main():
 
         result = acs_project.get_result(project)
 
-    except CloudStackException, e:
+    except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)

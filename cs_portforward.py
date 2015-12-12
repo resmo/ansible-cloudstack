@@ -702,7 +702,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             portforwarding_rule = self.cs.createPortForwardingRule(**args)
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
+                portforwarding_rule = self.poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
@@ -718,7 +718,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         args['ipaddressid']         = self.get_ip_address(key='id')
         args['virtualmachineid']    = self.get_vm(key='id')
 
-        if self._has_changed(args, portforwarding_rule):
+        if self.has_changed(args, portforwarding_rule):
             self.result['changed'] = True
             if not self.module.check_mode:
                 # API broken in 4.2.1?, workaround using remove/create instead of update
@@ -727,7 +727,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
                 portforwarding_rule = self.cs.createPortForwardingRule(**args)
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
+                    portforwarding_rule = self.poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
@@ -743,7 +743,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
                 res = self.cs.deletePortForwardingRule(**args)
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    self._poll_job(res, 'portforwardingrule')
+                    self.poll_job(res, 'portforwardingrule')
         return portforwarding_rule
 
 
@@ -767,14 +767,14 @@ def main():
         private_port = dict(type='int', required=True),
         private_end_port = dict(type='int', default=None),
         state = dict(choices=['present', 'absent'], default='present'),
-        open_firewall = dict(choices=BOOLEANS, default=False),
+        open_firewall = dict(type='bool', default=False),
         vm_guest_ip = dict(default=None),
         vm = dict(default=None),
         zone = dict(default=None),
         domain = dict(default=None),
         account = dict(default=None),
         project = dict(default=None),
-        poll_async = dict(choices=BOOLEANS, default=True),
+        poll_async = dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
@@ -796,7 +796,7 @@ def main():
 
         result = acs_pf.get_result(pf_rule)
 
-    except CloudStackException, e:
+    except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)

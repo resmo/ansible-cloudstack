@@ -608,13 +608,13 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
 
         # make an alias, so we can use _has_changed()
         ip_address['vmguestip'] = ip_address['vmipaddress']
-        if self._has_changed(args, ip_address):
+        if self.has_changed(args, ip_address):
             self.result['changed'] = True
             if not self.module.check_mode:
                 res = self.cs.disableStaticNat(ipaddressid=ip_address['id'])
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                res = self._poll_job(res, 'staticnat')
+                res = self.poll_job(res, 'staticnat')
                 res = self.cs.enableStaticNat(**args)
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -644,7 +644,7 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    res = self._poll_job(res, 'staticnat')
+                    res = self.poll_job(res, 'staticnat')
         return ip_address
 
 
@@ -660,7 +660,7 @@ def main():
         domain = dict(default=None),
         account = dict(default=None),
         project = dict(default=None),
-        poll_async = dict(choices=BOOLEANS, default=True),
+        poll_async = dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
@@ -683,7 +683,7 @@ def main():
 
         result = acs_static_nat.get_result(ip_address)
 
-    except CloudStackException, e:
+    except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)
