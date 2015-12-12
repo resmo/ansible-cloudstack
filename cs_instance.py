@@ -221,7 +221,7 @@ EXAMPLES = '''
 - local_action:
     module: cs_instance
     name: web-vm-1
-    display_name: web-vm-01.example.com 
+    display_name: web-vm-01.example.com
     iso: Linux Debian 7 64-bit
     service_offering: 2cpu_2gb
     force: yes
@@ -958,7 +958,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
     def get_user_data(self):
         user_data = self.module.params.get('user_data')
-        if user_data:
+        if user_data is not None:
             user_data = base64.b64encode(str(user_data))
         return user_data
 
@@ -1044,14 +1044,13 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args_ssh_key['id']                          = instance['id']
         args_ssh_key['keypair']                     = self.module.params.get('ssh_key')
         args_ssh_key['projectid']                   = self.get_project(key='id')
-        
+
         if self.has_changed(args_service_offering, instance) or \
            self.has_changed(args_instance_update, instance) or \
            self.has_changed(args_ssh_key, instance):
- 
+
             force = self.module.params.get('force')
             instance_state = instance['state'].lower()
-            
             if instance_state == 'stopped' or force:
                 self.result['changed'] = True
                 if not self.module.check_mode:
