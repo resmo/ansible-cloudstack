@@ -947,7 +947,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                     if 'errortext' in res:
                         self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
                     instance = res['virtualmachine']
-            instance = self.update_instance(instance)
+            instance = self.update_instance(instance=instance, start_vm=start_vm)
 
         # In check mode, we do not necessarely have an instance
         if instance:
@@ -1028,7 +1028,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         return instance
 
 
-    def update_instance(self, instance):
+    def update_instance(self, instance, start_vm=True):
         args_service_offering                       = {}
         args_service_offering['id']                 = instance['id']
         args_service_offering['serviceofferingid']  = self.get_service_offering_id()
@@ -1086,7 +1086,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         self.instance = instance
 
                     # Start VM again if it was running before
-                    if instance_state == 'running':
+                    if instance_state == 'running' and start_vm:
                         instance = self.start_instance()
         return instance
 
