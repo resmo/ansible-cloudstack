@@ -1037,22 +1037,28 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
 
     def update_instance(self, instance, start_vm=True):
-        args_service_offering                       = {}
-        args_service_offering['id']                 = instance['id']
+        # Service offering data
+        args_service_offering = {}
+        args_service_offering['id'] = instance['id']
         if self.module.params.get('service_offering'):
-            args_service_offering['serviceofferingid']  = self.get_service_offering_id()
+            args_service_offering['serviceofferingid'] = self.get_service_offering_id()
 
-        args_instance_update                        = {}
-        args_instance_update['id']                  = instance['id']
-        args_instance_update['group']               = self.module.params.get('group')
-        args_instance_update['displayname']         = self.get_or_fallback('display_name', 'name')
-        args_instance_update['userdata']            = self.get_user_data()
-        args_instance_update['ostypeid']            = self.get_os_type(key='id')
+        # Instance data
+        args_instance_update = {}
+        args_instance_update['id'] = instance['id']
+        args_instance_update['userdata'] = self.get_user_data()
+        args_instance_update['ostypeid'] = self.get_os_type(key='id')
+        if self.module.params.get('group'):
+            args_instance_update['group'] = self.module.params.get('group')
+        if self.module.params.get('display_name'):
+            args_instance_update['displayname'] = self.module.params.get('display_name')
 
-        args_ssh_key                                = {}
-        args_ssh_key['id']                          = instance['id']
-        args_ssh_key['keypair']                     = self.module.params.get('ssh_key')
-        args_ssh_key['projectid']                   = self.get_project(key='id')
+        # SSH key data
+        args_ssh_key = {}
+        args_ssh_key['id'] = instance['id']
+        args_ssh_key['projectid'] = self.get_project(key='id')
+        if self.module.params.get('ssh_key'):
+            args_ssh_key['keypair'] = self.module.params.get('ssh_key')
 
         if self.has_changed(args_service_offering, instance) or \
            self.has_changed(args_instance_update, instance) or \
