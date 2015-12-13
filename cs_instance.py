@@ -940,13 +940,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         if not instance:
             instance = self.deploy_instance(start_vm=start_vm)
         else:
-            if instance['state'].lower() in [ 'destroying', 'destroyed' ]:
-                self.result['changed'] = True
-                if not self.module.check_mode:
-                    res = self.cs.recoverVirtualMachine(id=instance['id'])
-                    if 'errortext' in res:
-                        self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                    instance = res['virtualmachine']
+            instance = self.recover_instance(instance=instance)
             instance = self.update_instance(instance=instance, start_vm=start_vm)
 
         # In check mode, we do not necessarely have an instance
@@ -1025,6 +1019,17 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             poll_async = self.module.params.get('poll_async')
             if poll_async:
                 instance = self.poll_job(instance, 'virtualmachine')
+        return instance
+
+
+    def recover_instance(self, instance):
+        if instance['state'].lower() in [ 'destroying', 'destroyed' ]:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                res = self.cs.recoverVirtualMachine(id=instance['id'])
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                instance = res['virtualmachine']
         return instance
 
 
