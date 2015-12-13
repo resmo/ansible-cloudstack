@@ -101,7 +101,6 @@
     - instance.service_offering == "{{ test_cs_instance_offering_2 }}"
     - instance.state == "Stopped"
 
-
 - name: test starting instance
   cs_instance:
     name: "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
@@ -127,6 +126,9 @@
     that:
     - instance|success
     - not instance|changed
+    - instance.name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    - instance.display_name == "{{ cs_resource_prefix }}-display-{{ instance_number }}"
+    - instance.service_offering == "{{ test_cs_instance_offering_2 }}"
     - instance.state == "Running"
 
 - name: test force update running instance
@@ -141,7 +143,7 @@
     - instance|success
     - instance|changed
     - instance.name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
-    - instance.display_name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    - instance.display_name == "{{ cs_resource_prefix }}-display-{{ instance_number }}"
     - instance.service_offering == "{{ test_cs_instance_offering_1 }}"
     - instance.state == "Running"
 
@@ -157,7 +159,7 @@
     - instance|success
     - not instance|changed
     - instance.name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
-    - instance.display_name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    - instance.display_name == "{{ cs_resource_prefix }}-display-{{ instance_number }}"
     - instance.service_offering == "{{ test_cs_instance_offering_1 }}"
     - instance.state == "Running"
 
@@ -173,5 +175,5 @@
     - instance|success
     - instance|changed
     - instance.name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
-    - instance.display_name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    - instance.display_name == "{{ cs_resource_prefix }}-display-{{ instance_number }}"
     - instance.service_offering == "{{ test_cs_instance_offering_1 }}"
