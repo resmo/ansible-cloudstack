@@ -1031,7 +1031,8 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
     def update_instance(self, instance, start_vm=True):
         args_service_offering                       = {}
         args_service_offering['id']                 = instance['id']
-        args_service_offering['serviceofferingid']  = self.get_service_offering_id()
+        if self.module.params.get('service_offering'):
+            args_service_offering['serviceofferingid']  = self.get_service_offering_id()
 
         args_instance_update                        = {}
         args_instance_update['id']                  = instance['id']
