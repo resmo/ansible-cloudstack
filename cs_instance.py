@@ -1139,87 +1139,83 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
     def stop_instance(self):
         instance = self.present_instance(start_vm=False)
+        # in check mode intance may not be instanciated
+        if instance:
+            if instance['state'].lower() in ['stopping', 'stopped']:
+                return instance
 
-        if instance['state'].lower() in ['stopping', 'stopped']:
-            return instance
+            if instance['state'].lower() in ['starting', 'running']:
+                self.result['changed'] = True
+                if not self.module.check_mode:
+                    instance = self.cs.stopVirtualMachine(id=instance['id'])
 
-        if instance['state'].lower() in ['starting', 'running']:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                instance = self.cs.stopVirtualMachine(id=instance['id'])
+                    if 'errortext' in instance:
+                        self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
 
-                if 'errortext' in instance:
-                    self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
-
-                poll_async = self.module.params.get('poll_async')
-                if poll_async:
-                    instance = self.poll_job(instance, 'virtualmachine')
+                    poll_async = self.module.params.get('poll_async')
+                    if poll_async:
+                        instance = self.poll_job(instance, 'virtualmachine')
         return instance
 
 
     def start_instance(self):
         instance = self.present_instance()
+        # in check mode intance may not be instanciated
+        if instance:
+            if instance['state'].lower() in ['starting', 'running']:
+                return instance
 
-        if instance['state'].lower() in ['starting', 'running']:
-            return instance
+            if instance['state'].lower() in ['stopped', 'stopping']:
+                self.result['changed'] = True
+                if not self.module.check_mode:
+                    instance = self.cs.startVirtualMachine(id=instance['id'])
 
-        if instance['state'].lower() in ['stopped', 'stopping']:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                instance = self.cs.startVirtualMachine(id=instance['id'])
+                    if 'errortext' in instance:
+                        self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
 
-                if 'errortext' in instance:
-                    self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
-
-                poll_async = self.module.params.get('poll_async')
-                if poll_async:
-                    instance = self.poll_job(instance, 'virtualmachine')
+                    poll_async = self.module.params.get('poll_async')
+                    if poll_async:
+                        instance = self.poll_job(instance, 'virtualmachine')
         return instance
 
 
     def restart_instance(self):
-        instance = self.get_instance()
+        instance = self.present_instance(start_vm=False)
+        # in check mode intance may not be instanciated
+        if instance:
+            if instance['state'].lower() in [ 'running', 'starting' ]:
+                self.result['changed'] = True
+                if not self.module.check_mode:
+                    instance = self.cs.rebootVirtualMachine(id=instance['id'])
 
-        if not instance:
-            instance = self.present_instance()
-            return instance
+                    if 'errortext' in instance:
+                        self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
 
-        elif instance['state'].lower() in [ 'running', 'starting' ]:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                instance = self.cs.rebootVirtualMachine(id=instance['id'])
+                    poll_async = self.module.params.get('poll_async')
+                    if poll_async:
+                        instance = self.poll_job(instance, 'virtualmachine')
 
-                if 'errortext' in instance:
-                    self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
-
-                poll_async = self.module.params.get('poll_async')
-                if poll_async:
-                    instance = self.poll_job(instance, 'virtualmachine')
-
-        elif instance['state'].lower() in [ 'stopping', 'stopped' ]:
-            instance = self.start_instance()
+            elif instance['state'].lower() in [ 'stopping', 'stopped' ]:
+                instance = self.start_instance()
         return instance
 
 
     def restore_instance(self):
-        instance = self.get_instance()
-
-        if not instance:
-            instance = self.present_instance()
-            return instance
-
+        instance = self.present_instance()
         self.result['changed'] = True
+        if instance
+            args = {}
+            args['templateid'] = self.get_template_or_iso(key='id')
+            args['virtualmachineid'] = instance['id']
+            if not self.module.check_mode:
+                res = self.cs.restoreVirtualMachine(**args)
 
-        args = {}
-        args['templateid'] = self.get_template_or_iso(key='id')
-        args['virtualmachineid'] = instance['id']
-        res = self.cs.restoreVirtualMachine(**args)
-        if 'errortext' in res:
-            self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
-        poll_async = self.module.params.get('poll_async')
-        if poll_async:
-            instance = self._poll_job(res, 'virtualmachine')
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                    instance = self._poll_job(res, 'virtualmachine')
         return instance
 
 
