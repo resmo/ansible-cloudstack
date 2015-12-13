@@ -1203,7 +1203,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
     def restore_instance(self):
         instance = self.present_instance()
         self.result['changed'] = True
-        if instance
+        if instance:
             args = {}
             args['templateid'] = self.get_template_or_iso(key='id')
             args['virtualmachineid'] = instance['id']
