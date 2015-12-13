@@ -937,6 +937,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
     def present_instance(self, start_vm=True):
         instance = self.get_instance()
+
         if not instance:
             instance = self.deploy_instance(start_vm=start_vm)
         else:
@@ -946,6 +947,8 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         # In check mode, we do not necessarely have an instance
         if instance:
             instance = self.ensure_tags(resource=instance, resource_type='UserVm')
+            # refresh instance data
+            self.instance = instance
 
         return instance
 
@@ -1138,7 +1141,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
 
     def stop_instance(self):
-        instance = self.present_instance(start_vm=False)
+        instance = self.get_instance()
         # in check mode intance may not be instanciated
         if instance:
             if instance['state'].lower() in ['stopping', 'stopped']:
@@ -1159,7 +1162,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
 
     def start_instance(self):
-        instance = self.present_instance()
+        instance = self.get_instance()
         # in check mode intance may not be instanciated
         if instance:
             if instance['state'].lower() in ['starting', 'running']:
@@ -1180,7 +1183,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
 
     def restart_instance(self):
-        instance = self.present_instance(start_vm=False)
+        instance = self.get_instance()
         # in check mode intance may not be instanciated
         if instance:
             if instance['state'].lower() in [ 'running', 'starting' ]:
@@ -1201,7 +1204,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
 
     def restore_instance(self):
-        instance = self.present_instance()
+        instance = self.get_instance()
         self.result['changed'] = True
         if instance:
             args = {}
@@ -1303,18 +1306,22 @@ def main():
             instance = acs_instance.expunge_instance()
 
         elif state in ['restored']:
+            instance = acs_instance.present_instance()
             instance = acs_instance.restore_instance()
 
         elif state in ['present', 'deployed']:
             instance = acs_instance.present_instance()
 
         elif state in ['stopped']:
+            instance = acs_instance.present_instance(start_vm=False)
             instance = acs_instance.stop_instance()
 
         elif state in ['started']:
+            instance = acs_instance.present_instance()
             instance = acs_instance.start_instance()
 
         elif state in ['restarted']:
+            instance = acs_instance.present_instance()
             instance = acs_instance.restart_instance()
 
         if instance and 'state' in instance and instance['state'].lower() == 'error':
