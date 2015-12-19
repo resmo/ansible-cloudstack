@@ -598,7 +598,7 @@ class AnsibleCloudStackDomain(AnsibleCloudStack):
         args['id']              = domain['id']
         args['networkdomain']   = self.module.params.get('network_domain')
 
-        if self.has_changed(args, domain):
+        if self._has_changed(args, domain):
             self.result['changed'] = True
             if not self.module.check_mode:
                 res = self.cs.updateDomain(**args)
@@ -624,7 +624,7 @@ class AnsibleCloudStackDomain(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    res = self.poll_job(res, 'domain')
+                    res = self._poll_job(res, 'domain')
         return domain
 
 

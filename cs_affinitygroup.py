@@ -587,7 +587,7 @@ class AnsibleCloudStackAffinityGroup(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    affinity_group = self.poll_job(res, 'affinitygroup')
+                    affinity_group = self._poll_job(res, 'affinitygroup')
         return affinity_group
 
 
@@ -610,7 +610,7 @@ class AnsibleCloudStackAffinityGroup(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    res = self.poll_job(res, 'affinitygroup')
+                    res = self._poll_job(res, 'affinitygroup')
         return affinity_group
 
 

@@ -702,7 +702,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             portforwarding_rule = self.cs.createPortForwardingRule(**args)
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                portforwarding_rule = self.poll_job(portforwarding_rule, 'portforwardingrule')
+                portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
@@ -718,7 +718,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         args['ipaddressid']         = self.get_ip_address(key='id')
         args['virtualmachineid']    = self.get_vm(key='id')
 
-        if self.has_changed(args, portforwarding_rule):
+        if self._has_changed(args, portforwarding_rule):
             self.result['changed'] = True
             if not self.module.check_mode:
                 # API broken in 4.2.1?, workaround using remove/create instead of update
@@ -727,7 +727,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
                 portforwarding_rule = self.cs.createPortForwardingRule(**args)
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    portforwarding_rule = self.poll_job(portforwarding_rule, 'portforwardingrule')
+                    portforwarding_rule = self._poll_job(portforwarding_rule, 'portforwardingrule')
         return portforwarding_rule
 
 
@@ -743,7 +743,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
                 res = self.cs.deletePortForwardingRule(**args)
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    self.poll_job(res, 'portforwardingrule')
+                    self._poll_job(res, 'portforwardingrule')
         return portforwarding_rule
 
 

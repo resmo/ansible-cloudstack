@@ -819,7 +819,7 @@ class AnsibleCloudStackNetwork(AnsibleCloudStack):
         args        = self._get_args()
         args['id']  = network['id']
 
-        if self.has_changed(args, network):
+        if self._has_changed(args, network):
             self.result['changed'] = True
             if not self.module.check_mode:
                 network = self.cs.updateNetwork(**args)
@@ -829,7 +829,7 @@ class AnsibleCloudStackNetwork(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if network and poll_async:
-                    network = self.poll_job(network, 'network')
+                    network = self._poll_job(network, 'network')
         return network
 
 
@@ -887,7 +887,7 @@ class AnsibleCloudStackNetwork(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if network and poll_async:
-                    network = self.poll_job(network, 'network')
+                    network = self._poll_job(network, 'network')
         return network
 
 
@@ -907,7 +907,7 @@ class AnsibleCloudStackNetwork(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    res = self.poll_job(res, 'network')
+                    res = self._poll_job(res, 'network')
             return network
 
 

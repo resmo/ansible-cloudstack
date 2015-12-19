@@ -44,7 +44,6 @@ options:
   state:
     description:
       - State of the instance.
-      - C(restored) added in version 2.1.
     required: false
     default: 'present'
     choices: [ 'deployed', 'started', 'stopped', 'restarted', 'restored', 'destroyed', 'expunged', 'present', 'absent' ]
@@ -247,13 +246,13 @@ EXAMPLES = '''
       - {'network': NetworkA, 'ip': '10.1.1.1'}
       - {'network': NetworkB, 'ip': '192.168.1.1'}
 
-# Ensure a instance has stopped
+# Ensure an instance is stopped
 - local_action: cs_instance name=web-vm-1 state=stopped
 
-# Ensure a instance is running
+# Ensure an instance is running
 - local_action: cs_instance name=web-vm-1 state=started
 
-# Remove a instance
+# Remove an instance
 - local_action: cs_instance name=web-vm-1 state=absent
 '''
 
@@ -1021,18 +1020,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                instance = self.poll_job(instance, 'virtualmachine')
-        return instance
-
-
-    def recover_instance(self, instance):
-        if instance['state'].lower() in [ 'destroying', 'destroyed' ]:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                res = self.cs.recoverVirtualMachine(id=instance['id'])
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                instance = res['virtualmachine']
+                instance = self._poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1060,9 +1048,16 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         if self.module.params.get('ssh_key'):
             args_ssh_key['keypair'] = self.module.params.get('ssh_key')
 
-        if self.has_changed(args_service_offering, instance) or \
-           self.has_changed(args_instance_update, instance) or \
-           self.has_changed(args_ssh_key, instance):
+        # SSH key data
+        args_ssh_key = {}
+        args_ssh_key['id'] = instance['id']
+        args_ssh_key['projectid'] = self.get_project(key='id')
+        if self.module.params.get('ssh_key'):
+            args_ssh_key['keypair'] = self.module.params.get('ssh_key')
+
+        if self._has_changed(args_service_offering, instance) or \
+           self._has_changed(args_instance_update, instance) or \
+           self._has_changed(args_ssh_key, instance):
 
             force = self.module.params.get('force')
             instance_state = instance['state'].lower()
@@ -1072,11 +1067,11 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     # Ensure VM has stopped
                     instance = self.stop_instance()
-                    instance = self.poll_job(instance, 'virtualmachine')
+                    instance = self._poll_job(instance, 'virtualmachine')
                     self.instance = instance
 
                     # Change service offering
-                    if self.has_changed(args_service_offering, instance):
+                    if self._has_changed(args_service_offering, instance):
                         res = self.cs.changeServiceForVirtualMachine(**args_service_offering)
                         if 'errortext' in res:
                             self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -1084,7 +1079,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         self.instance = instance
 
                     # Update VM
-                    if self.has_changed(args_instance_update, instance):
+                    if self._has_changed(args_instance_update, instance):
                         res = self.cs.updateVirtualMachine(**args_instance_update)
                         if 'errortext' in res:
                             self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -1092,17 +1087,28 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         self.instance = instance
 
                     # Reset SSH key
-                    if self.has_changed(args_ssh_key, instance):
+                    if self._has_changed(args_ssh_key, instance):
                         instance = self.cs.resetSSHKeyForVirtualMachine(**args_ssh_key)
                         if 'errortext' in instance:
                             self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
 
-                        instance = self.poll_job(instance, 'virtualmachine')
+                        instance = self._poll_job(instance, 'virtualmachine')
                         self.instance = instance
 
                     # Start VM again if it was running before
                     if instance_state == 'running' and start_vm:
                         instance = self.start_instance()
+        return instance
+
+
+    def recover_instance(self, instance):
+        if instance['state'].lower() in [ 'destroying', 'destroyed' ]:
+            self.result['changed'] = True
+            if not self.module.check_mode:
+                res = self.cs.recoverVirtualMachine(id=instance['id'])
+                if 'errortext' in res:
+                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
+                instance = res['virtualmachine']
         return instance
 
 
@@ -1119,7 +1125,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self.poll_job(res, 'virtualmachine')
+                        instance = self._poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1142,7 +1148,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                res = self.poll_job(res, 'virtualmachine')
+                res = self._poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1163,7 +1169,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self.poll_job(instance, 'virtualmachine')
+                        instance = self._poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1184,7 +1190,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self.poll_job(instance, 'virtualmachine')
+                        instance = self._poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1202,7 +1208,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self.poll_job(instance, 'virtualmachine')
+                        instance = self._poll_job(instance, 'virtualmachine')
 
             elif instance['state'].lower() in [ 'stopping', 'stopped' ]:
                 instance = self.start_instance()
@@ -1212,19 +1218,18 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
     def restore_instance(self):
         instance = self.get_instance()
         self.result['changed'] = True
+        # in check mode intance may not be instanciated
         if instance:
             args = {}
             args['templateid'] = self.get_template_or_iso(key='id')
             args['virtualmachineid'] = instance['id']
-            if not self.module.check_mode:
-                res = self.cs.restoreVirtualMachine(**args)
+            res = self.cs.restoreVirtualMachine(**args)
+            if 'errortext' in res:
+                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
 
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-
-                poll_async = self.module.params.get('poll_async')
-                if poll_async:
-                    instance = self._poll_job(res, 'virtualmachine')
+            poll_async = self.module.params.get('poll_async')
+            if poll_async:
+                instance = self._poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1312,22 +1317,22 @@ def main():
             instance = acs_instance.expunge_instance()
 
         elif state in ['restored']:
-            instance = acs_instance.present_instance()
+            acs_instance.present_instance()
             instance = acs_instance.restore_instance()
 
         elif state in ['present', 'deployed']:
             instance = acs_instance.present_instance()
 
         elif state in ['stopped']:
-            instance = acs_instance.present_instance(start_vm=False)
+            acs_instance.present_instance(start_vm=False)
             instance = acs_instance.stop_instance()
 
         elif state in ['started']:
-            instance = acs_instance.present_instance()
+            acs_instance.present_instance()
             instance = acs_instance.start_instance()
 
         elif state in ['restarted']:
-            instance = acs_instance.present_instance()
+            acs_instance.present_instance()
             instance = acs_instance.restart_instance()
 
         if instance and 'state' in instance and instance['state'].lower() == 'error':

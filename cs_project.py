@@ -566,7 +566,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
         args['id']          = project['id']
         args['displaytext'] = self.get_or_fallback('display_text', 'name')
 
-        if self.has_changed(args, project):
+        if self._has_changed(args, project):
             self.result['changed'] = True
             if not self.module.check_mode:
                 project = self.cs.updateProject(**args)
@@ -576,7 +576,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if project and poll_async:
-                    project = self.poll_job(project, 'project')
+                    project = self._poll_job(project, 'project')
         return project
 
 
@@ -597,7 +597,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if project and poll_async:
-                project = self.poll_job(project, 'project')
+                project = self._poll_job(project, 'project')
         return project
 
 
@@ -624,7 +624,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if project and poll_async:
-                    project = self.poll_job(project, 'project')
+                    project = self._poll_job(project, 'project')
         return project
 
 
@@ -644,7 +644,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
 
                 poll_async = self.module.params.get('poll_async')
                 if res and poll_async:
-                    res = self.poll_job(res, 'project')
+                    res = self._poll_job(res, 'project')
             return project
 
 

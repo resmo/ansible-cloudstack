@@ -591,7 +591,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                res = self.poll_job(res, 'ipaddress')
+                res = self._poll_job(res, 'ipaddress')
             ip_address = res
         return ip_address
 
@@ -610,7 +610,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
                 self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                res = self.poll_job(res, 'ipaddress')
+                res = self._poll_job(res, 'ipaddress')
         return ip_address
 
 
