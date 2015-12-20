@@ -518,14 +518,16 @@ class AnsibleCloudStackSecurityGroup(AnsibleCloudStack):
 
     def get_security_group(self):
         if not self.security_group:
+
             args = {}
             args['projectid'] = self.get_project(key='id')
             args['account'] = self.get_account(key='name')
             args['domainid'] = self.get_domain(key='id')
             args['securitygroupname'] = self.module.params.get('name')
+
             sgs = self.cs.listSecurityGroups(**args)
             if sgs:
-                self.security_group = sgs['securitygroup'][0]:
+                self.security_group = sgs['securitygroup'][0]
         return self.security_group
 
 
