@@ -91,6 +91,11 @@ description:
   returned: success
   type: string
   sample: application security group
+tags:
+  description: List of resource tags associated with the security group.
+  returned: success
+  type: dict
+  sample: '[ { "key": "foo", "value": "bar" } ]'
 project:
   description: Name of project the security group is related to.
   returned: success
