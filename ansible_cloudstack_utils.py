@@ -90,14 +90,17 @@ class AnsibleCloudStack(object):
 
 
     def get_or_fallback(self, key=None, fallback_key=None):
-        return self.module.params.get(key, self.module.params.get(fallback_key))
+        value = self.module.params.get(key)
+        if not value:
+            value = self.module.params.get(fallback_key)
+        return value
 
 
     def fail_on_missing_params(self, required_params=None):
         if not required_params:
             return
         missing_params = []
-        for required_param in required_params
+        for required_param in required_params:
             if not self.module.params.get(required_param):
                 missing_params.append(required_param)
         if missing_params:

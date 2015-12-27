@@ -325,6 +325,18 @@ except ImportError:
     has_lib_cs = False
 
 # import cloudstack common
+CS_HYPERVISORS=[
+    'KVM', 'kvm',
+    'VMware', 'vmware',
+    'BareMetal', 'baremetal',
+    'XenServer', 'xenserver',
+    'LXC', 'lxc',
+    'HyperV', 'hyperv',
+    'UCS', 'ucs',
+    'OVM', 'ovm',
+    'Simulator', 'simulator',
+    ]
+
 def cs_argument_spec():
     return dict(
         api_key = dict(default=None),
@@ -411,6 +423,17 @@ class AnsibleCloudStack(object):
         return value
 
 
+    def fail_on_missing_params(self, required_params=None):
+        if not required_params:
+            return
+        missing_params = []
+        for required_param in required_params:
+            if not self.module.params.get(required_param):
+                missing_params.append(required_param)
+        if missing_params:
+            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
+
+
     # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
         return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
@@ -418,23 +441,19 @@ class AnsibleCloudStack(object):
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
-
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
                 continue
-
             # Skip None values
             if value is None:
                 continue
 
             if key in current_dict:
-
                 # API returns string for int in some cases, just to make sure
                 if isinstance(value, int):
                     current_dict[key] = int(current_dict[key])
                 elif isinstance(value, str):
                     current_dict[key] = str(current_dict[key])
-
                 # Only need to detect a singe change, not every item
                 if value != current_dict[key]:
                     return True
@@ -508,7 +527,7 @@ class AnsibleCloudStack(object):
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
-                if vm in [ v['name'], v['displayname'], v['id'] ]:
+                if vm.lower() in [ v['name'].lower(), v['displayname'].lower(), v['id'] ]:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
@@ -519,19 +538,13 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.zone)
 
         zone = self.module.params.get('zone')
-        zones = self.cs.listZones()
+        zones = self.cs.listZones(name=zone)
 
         # use the first zone if no zone param given
-        if not zone:
+        if zones:
             self.zone = zones['zone'][0]
             return self._get_by_key(key, self.zone)
-
-        if zones:
-            for z in zones['zone']:
-                if zone in [ z['name'], z['id'] ]:
-                    self.zone = z
-                    return self._get_by_key(key, self.zone)
-        self.module.fail_json(msg="zone '%s' not found" % zone)
+        self.module.fail_json(msg="No zones found")
 
 
     def get_os_type(self, key=None):
