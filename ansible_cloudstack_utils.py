@@ -81,6 +81,17 @@ class AnsibleCloudStack(object):
         return self.module.params.get(key, self.module.params.get(fallback_key))
 
 
+    def fail_on_missing_params(self, required_params=None):
+        if not required_params:
+            return
+        missing_params = []
+        for required_param in required_params
+            if not self.module.params.get(required_param):
+                missing_params.append(required_param)
+        if missing_params:
+            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
+
+
     # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
         return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
