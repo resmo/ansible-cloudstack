@@ -88,23 +88,19 @@ class AnsibleCloudStack(object):
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
-
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
                 continue
-
             # Skip None values
             if value is None:
                 continue
 
             if key in current_dict:
-
                 # API returns string for int in some cases, just to make sure
                 if isinstance(value, int):
                     current_dict[key] = int(current_dict[key])
                 elif isinstance(value, str):
                     current_dict[key] = str(current_dict[key])
-
                 # Only need to detect a singe change, not every item
                 if value != current_dict[key]:
                     return True
@@ -189,19 +185,13 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.zone)
 
         zone = self.module.params.get('zone')
-        zones = self.cs.listZones()
+        zones = self.cs.listZones(name=zone)
 
         # use the first zone if no zone param given
-        if not zone:
+        if zones:
             self.zone = zones['zone'][0]
             return self._get_by_key(key, self.zone)
-
-        if zones:
-            for z in zones['zone']:
-                if zone in [ z['name'], z['id'] ]:
-                    self.zone = z
-                    return self._get_by_key(key, self.zone)
-        self.module.fail_json(msg="zone '%s' not found" % zone)
+        self.module.fail_json(msg="No zones found")
 
 
     def get_os_type(self, key=None):
