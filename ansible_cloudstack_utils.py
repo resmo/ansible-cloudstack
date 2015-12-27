@@ -181,7 +181,7 @@ class AnsibleCloudStack(object):
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
-                if vm in [ v['name'], v['displayname'], v['id'] ]:
+                if vm.lower() in [ v['name'].lower(), v['displayname'].lower(), v['id'] ]:
                     self.vm = v
                     return self._get_by_key(key, self.vm)
         self.module.fail_json(msg="Virtual machine '%s' not found" % vm)
