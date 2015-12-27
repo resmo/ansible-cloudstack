@@ -230,16 +230,21 @@ EXAMPLES = '''
     service_offering: 2cpu_2gb
     force: yes
 
-# Create or update a instance on Exoscale's public cloud
+# Create or update a instance on Exoscale's public cloud using display_name.
+# Note: user_data can be used to kickstart the instance using cloud-init yaml config.
 - local_action:
     module: cs_instance
-    name: web-vm-1
+    display_name: web-vm-1
     template: Linux Debian 7 64-bit
     service_offering: Tiny
     ssh_key: john@example.com
     tags:
       - { key: admin, value: john }
       - { key: foo,   value: bar }
+    user_data: |
+        #cloud-config
+        packages:
+          - nginx
 
 # Create an instance with multiple interfaces specifying the IP addresses
 - local_action:
