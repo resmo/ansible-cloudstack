@@ -78,10 +78,7 @@ class AnsibleCloudStack(object):
 
 
     def get_or_fallback(self, key=None, fallback_key=None):
-        value = self.module.params.get(key)
-        if not value:
-            value = self.module.params.get(fallback_key)
-        return value
+        return self.module.params.get(key, self.module.params.get(fallback_key))
 
 
     # TODO: for backward compatibility only, remove if not used anymore
