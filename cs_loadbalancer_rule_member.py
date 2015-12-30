@@ -332,13 +332,19 @@ class AnsibleCloudStack(object):
 
             if key in current_dict:
                 # API returns string for int in some cases, just to make sure
-                if isinstance(value, int):
+                if isinstance(value, (int, long, float, complex)):
                     current_dict[key] = int(current_dict[key])
+                    if value != current_dict[key]:
+                        return True
                 elif isinstance(value, str):
                     current_dict[key] = str(current_dict[key])
-                # Only need to detect a singe change, not every item
-                if value != current_dict[key]:
-                    return True
+                    # Test for diff in case insensitive way
+                    if value.lower() != current_dict[key].lower():
+                        return True
+                else:
+                    current_dict[key] = str(current_dict[key])
+                    if value != current_dict[key]:
+                        return True
         return False
 
 
