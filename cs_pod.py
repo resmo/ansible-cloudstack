@@ -635,6 +635,7 @@ class AnsibleCloudStackPod(AnsibleCloudStack):
         ]
         self.fail_on_missing_params(required_params=required_params)
 
+        pod = None
         self.result['changed'] = True
         args = self._get_common_pod_args()
         if not self.module.check_mode:

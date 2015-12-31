@@ -723,9 +723,12 @@ class AnsibleCloudStackZone(AnsibleCloudStack):
         self.fail_on_missing_params(required_params=required_params)
 
         self.result['changed'] = True
+
         args = self._get_common_zone_args()
         args['domainid'] = self.get_domain(key='id')
         args['securitygroupenabled'] = self.module.params.get('securitygroups_enabled')
+
+        zone = None
         if not self.module.check_mode:
             res = self.cs.createZone(**args)
             if 'errortext' in res:
