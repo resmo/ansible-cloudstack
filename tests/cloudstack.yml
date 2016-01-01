@@ -22,6 +22,7 @@
     - { role: test_cs_securitygroup_rule,   tags: [ test_cs_securitygroup_rule, cs_net_basic ] }
     - { role: test_cs_instancegroup,        tags: [ test_cs_instancegroup, cs_net_basic ] }
     - { role: test_cs_instance,             tags: [ test_cs_instance, cs_net_basic ] }
+    - { role: test_cs_instance_facts,       tags: [ test_cs_instance_facts, cs_net_basic ] }
     - { role: test_cs_portforward,          tags: [ test_cs_portforward, cs_net_adv ] }
     - { role: test_cs_account,              tags: [ test_cs_account, cs_net_basic ] }
     - { role: test_cs_firewall,             tags: [ test_cs_firewall, cs_net_adv ] }
