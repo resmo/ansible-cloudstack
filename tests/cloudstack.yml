@@ -9,6 +9,7 @@
   roles:
     - { role: test_cs_zone,                 tags: [ test_cs_zone, cs_net_basic ] }
     - { role: test_cs_pod,                  tags: [ test_cs_pod, cs_net_basic ] }
+    - { role: test_cs_cluster,              tags: [ test_cs_cluster, cs_net_basic ] }
     - { role: test_cs_user,                 tags: [ test_cs_user, cs_net_basic ] }
     - { role: test_cs_volume,               tags: [ test_cs_volume, cs_net_basic ] }
     - { role: test_cs_project,              tags: [ test_cs_project, cs_net_basic ] }
