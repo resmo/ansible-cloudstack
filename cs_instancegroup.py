@@ -164,6 +164,10 @@ class AnsibleCloudStack(object):
         self.returns = {}
         # these values will be casted to int
         self.returns_to_int = {}
+        # these keys will be compared case sensitive in self.has_changed()
+        self.case_sensitive_keys = [
+            'id',
+        ]
 
         self.module = module
         self._connect()
@@ -233,20 +237,14 @@ class AnsibleCloudStack(object):
                 continue
 
             if key in current_dict:
-                # API returns string for int in some cases, just to make sure
-                if isinstance(value, (int, long, float, complex)):
-                    current_dict[key] = int(current_dict[key])
-                    if value != current_dict[key]:
+                if self.case_sensitive_keys and key in self.case_sensitive_keys:
+                    if str(value) != str(current_dict[key]):
                         return True
-                elif isinstance(value, str):
-                    current_dict[key] = str(current_dict[key])
-                    # Test for diff in case insensitive way
-                    if value.lower() != current_dict[key].lower():
-                        return True
-                else:
-                    current_dict[key] = str(current_dict[key])
-                    if value != current_dict[key]:
-                        return True
+                # Test for diff in case insensitive way
+                elif str(value).lower() != str(current_dict[key]).lower():
+                    return True
+            else:
+                return True
         return False
 
 
