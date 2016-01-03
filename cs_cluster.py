@@ -700,6 +700,7 @@ class AnsibleCloudStackCluster(AnsibleCloudStack):
                 self.cluster = clusters['cluster'][0]
                 # fix differnt return from API then request argument given
                 self.cluster['hypervisor'] = self.cluster['hypervisortype']
+                self.cluster['clustername'] = self.cluster['name']
         return self.cluster
 
 
