@@ -7,6 +7,7 @@
   vars:
     cs_resource_prefix: "{{ resource_prefix | default('cs-') }}"
   roles:
+    - { role: test_cs_configuration,        tags: [ test_cs_configuration, cs_net_basic ] }
     - { role: test_cs_zone,                 tags: [ test_cs_zone, cs_net_basic ] }
     - { role: test_cs_pod,                  tags: [ test_cs_pod, cs_net_basic ] }
     - { role: test_cs_cluster,              tags: [ test_cs_cluster, cs_net_basic ] }
