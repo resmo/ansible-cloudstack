@@ -21,9 +21,9 @@
 DOCUMENTATION = '''
 ---
 module: cs_instance_facts
-short_description: Gathering facts of instances from Apache CloudStack based clouds.
+short_description: Gathering facts from the API of instances from Apache CloudStack based clouds.
 description:
-    - Gathering facts of an instance.
+    - Gathering facts from the API of an instance.
 version_added: "2.1"
 author: "René Moser (@resmo)"
 options:
@@ -31,6 +31,133 @@ options:
     description:
       - Name or display name of the instance.
     required: true
+'''
+
+EXAMPLES = '''
+- local_action:
+    module: cs_instance_facts
+    name: web-vm-1
+
+- debug: var=cloudstack_instance
+'''
+
+RETURN = '''
+---
+cloudstack_instance.id:
+  description: UUID of the instance.
+  returned: success
+  type: string
+  sample: 04589590-ac63-4ffc-93f5-b698b8ac38b6
+cloudstack_instance.name:
+  description: Name of the instance.
+  returned: success
+  type: string
+  sample: web-01
+cloudstack_instance.display_name:
+  description: Display name of the instance.
+  returned: success
+  type: string
+  sample: web-01
+cloudstack_instance.group:
+  description: Group name of the instance is related.
+  returned: success
+  type: string
+  sample: web
+created:
+  description: Date of the instance was created.
+  returned: success
+  type: string
+  sample: 2014-12-01T14:57:57+0100
+cloudstack_instance.password_enabled:
+  description: True if password setting is enabled.
+  returned: success
+  type: boolean
+  sample: true
+cloudstack_instance.password:
+  description: The password of the instance if exists.
+  returned: success
+  type: string
+  sample: Ge2oe7Do
+cloudstack_instance.ssh_key:
+  description: Name of SSH key deployed to instance.
+  returned: success
+  type: string
+  sample: key@work
+cloudstack_instance.domain:
+  description: Domain the instance is related to.
+  returned: success
+  type: string
+  sample: example domain
+cloudstack_instance.account:
+  description: Account the instance is related to.
+  returned: success
+  type: string
+  sample: example account
+cloudstack_instance.project:
+  description: Name of project the instance is related to.
+  returned: success
+  type: string
+  sample: Production
+cloudstack_instance.default_ip:
+  description: Default IP address of the instance.
+  returned: success
+  type: string
+  sample: 10.23.37.42
+cloudstack_instance.public_ip:
+  description: Public IP address with instance via static NAT rule.
+  returned: success
+  type: string
+  sample: 1.2.3.4
+cloudstack_instance.iso:
+  description: Name of ISO the instance was deployed with.
+  returned: success
+  type: string
+  sample: Debian-8-64bit
+cloudstack_instance.template:
+  description: Name of template the instance was deployed with.
+  returned: success
+  type: string
+  sample: Debian-8-64bit
+cloudstack_instance.service_offering:
+  description: Name of the service offering the instance has.
+  returned: success
+  type: string
+  sample: 2cpu_2gb
+cloudstack_instance.zone:
+  description: Name of zone the instance is in.
+  returned: success
+  type: string
+  sample: ch-gva-2
+cloudstack_instance.state:
+  description: State of the instance.
+  returned: success
+  type: string
+  sample: Running
+cloudstack_instance.security_groups:
+  description: Security groups the instance is in.
+  returned: success
+  type: list
+  sample: '[ "default" ]'
+cloudstack_instance.affinity_groups:
+  description: Affinity groups the instance is in.
+  returned: success
+  type: list
+  sample: '[ "webservers" ]'
+cloudstack_instance.tags:
+  description: List of resource tags associated with the instance.
+  returned: success
+  type: dict
+  sample: '[ { "key": "foo", "value": "bar" } ]'
+cloudstack_instance.hypervisor:
+  description: Hypervisor related to this instance.
+  returned: success
+  type: string
+  sample: KVM
+cloudstack_instance.instance_name:
+  description: Internal name of the instance (ROOT admin only).
+  returned: success
+  type: string
+  sample: i-44-3992-VM
 '''
 
 import base64
