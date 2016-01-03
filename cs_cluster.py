@@ -698,6 +698,8 @@ class AnsibleCloudStackCluster(AnsibleCloudStack):
             clusters = self.cs.listClusters(**args)
             if clusters:
                 self.cluster = clusters['cluster'][0]
+                # fix differnt return from API then request argument given
+                self.cluster['hypervisor'] = self.cluster['hypervisortype']
         return self.cluster
 
 
