@@ -28,3 +28,4 @@
     - { role: test_cs_account,              tags: [ test_cs_account, cs_net_basic ] }
     - { role: test_cs_firewall,             tags: [ test_cs_firewall, cs_net_adv ] }
     - { role: test_cs_loadbalancer_rule,    tags: [ test_cs_loadbalancer_rule, cs_lb_rule, cs_net_adv ] }
+    - { role: test_cs_resourcelimit,        tags: [ test_cs_resourcelimit, cs_net_basic ] }
