@@ -1,6 +1,6 @@
 ---
 - name: setup instance with display_name to be absent
-  cs_instance: display_name={{ cs_resource_prefix }}-vm-{{ instance_number }} state=absent
+  cs_instance: display_name={{ cs_resource_prefix }}-vm-{{ instance_number }} state=expunged
   register: instance
 - name: verify instance with display_name to be absent
   assert:
@@ -99,6 +99,20 @@
     that:
     - instance|success
     - instance|changed
+    - instance.display_name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    - instance.service_offering == "{{ test_cs_instance_offering_2 }}"
+    - instance.state == "Stopped"
+
+- name: test updating stopped instance with display_name idempotence
+  cs_instance:
+    display_name: "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
+    service_offering: "{{ test_cs_instance_offering_2 }}"
+  register: instance
+- name: verify updating stopped instance with display_name idempotence
+  assert:
+    that:
+    - instance|success
+    - not instance|changed
     - instance.display_name == "{{ cs_resource_prefix }}-vm-{{ instance_number }}"
     - instance.service_offering == "{{ test_cs_instance_offering_2 }}"
     - instance.state == "Stopped"
