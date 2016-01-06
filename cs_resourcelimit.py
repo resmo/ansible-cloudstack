@@ -99,17 +99,17 @@ limit:
   type: int
   sample: -1
 domain:
-  description: Domain the instance group is related to.
+  description: Domain the resource is related to.
   returned: success
   type: string
   sample: example domain
 account:
-  description: Account the instance group is related to.
+  description: Account the resource is related to.
   returned: success
   type: string
   sample: example account
 project:
-  description: Project the instance group is related to.
+  description: Project the resource is related to.
   returned: success
   type: string
   sample: example project
@@ -545,7 +545,6 @@ RESOURCE_TYPES = {
     'primary_storage':      10,
     'secondary_storage':    11,
 }
-
 
 class AnsibleCloudStackResourceLimit(AnsibleCloudStack):
 
