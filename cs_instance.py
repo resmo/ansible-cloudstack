@@ -946,7 +946,6 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
         for security_group in security_groups:
             if security_group not in instance_security_group_names:
-                self.module
                 return True
         return False
 
