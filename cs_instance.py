@@ -907,7 +907,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             instances = self.cs.listVirtualMachines(**args)
             if instances:
                 for v in instances['virtualmachine']:
-                    if instance_name in [ v['name'], v['displayname'], v['id'] ]:
+                    if instance_name.lower() in [ v['name'].lower(), v['displayname'].lower(), v['id'] ]:
                         self.instance = v
                         break
         return self.instance
