@@ -1051,9 +1051,12 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args['size']                = self.module.params.get('disk_size')
         args['startvm']             = start_vm
         args['rootdisksize']        = self.module.params.get('root_disk_size')
-        args['securitygroupnames']  = ','.join(self.module.params.get('security_groups'))
         args['affinitygroupnames']  = ','.join(self.module.params.get('affinity_groups'))
         args['details']             = self.get_details()
+
+        security_groups = self.module.params.get('security_groups')
+        if security_groups is not None:
+            args['securitygroupnames']  = ','.join(security_groups)
 
         template_iso = self.get_template_or_iso()
         if 'hypervisor' not in template_iso:
