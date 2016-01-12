@@ -644,7 +644,7 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
             'publicport':       'public_port',
             'publicendport':    'public_end_port',
             'privateport':      'private_port',
-            'private_end_port': 'private_end_port',
+            'privateendport':   'private_end_port',
         }
         self.portforwarding_rule = None
         self.vm_default_nic = None
@@ -736,7 +736,6 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
         args['publicendport']       = self.get_or_fallback('public_end_port', 'public_port')
         args['privateport']         = self.module.params.get('private_port')
         args['privateendport']      = self.get_or_fallback('private_end_port', 'private_port')
-        args['openfirewall']        = self.module.params.get('open_firewall')
         args['vmguestip']           = self.get_vm_guest_ip()
         args['ipaddressid']         = self.get_ip_address(key='id')
         args['virtualmachineid']    = self.get_vm(key='id')
