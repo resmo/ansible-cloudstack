@@ -2,6 +2,7 @@
 - name: setup zone is absent
   cs_zone:
     name: "{{ cs_resource_prefix }}-zone"
+    state: absent
   register: zone
 - name: verify setup zone is absent
   assert:
@@ -21,64 +22,121 @@
 - name: test create zone
   cs_zone:
     name: "{{ cs_resource_prefix }}-zone"
-  register: zone
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+    network_type: basic
+  register: zone_origin
 - name: verify test create zone
   assert:
     that:
-      - zone|changed
+      - zone_origin|changed
+      - zone_origin.allocation_state == "Disabled"
+      - zone_origin.dns1 == "8.8.8.8"
+      - zone_origin.internal_dns1 == "8.8.8.8"
+      - zone_origin.dns2 == "8.8.4.4"
+      - zone_origin.internal_dns2 == "8.8.4.4"
+      - zone_origin.network_type == "Basic"
 
 - name: test create zone idempotence
   cs_zone:
     name: "{{ cs_resource_prefix }}-zone"
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+    network_type: basic
   register: zone
 - name: verify test create zone idempotence
   assert:
     that:
       - not zone|changed
+      - zone.id == zone_origin.id
+      - zone.allocation_state == "Disabled"
+      - zone.dns1 == "8.8.8.8"
+      - zone.internal_dns1 == "8.8.8.8"
+      - zone.dns2 == "8.8.4.4"
+      - zone.internal_dns2 == "8.8.4.4"
+      - zone.network_type == "Basic"
 
-- name: test disable zone
+- name: test update zone
   cs_zone:
     name: "{{ cs_resource_prefix }}-zone"
-    state: disabled
+    dns1: 8.8.4.4
+    dns2: 8.8.8.8
+    network_type: Basic
   register: zone
-- name: verify test disable zone
+- name: verify test create zone
   assert:
     that:
       - zone|changed
-      - zone.state == "disabled"
+      - zone.id == zone_origin.id
+      - zone.allocation_state == "Disabled"
+      - zone.dns1 == "8.8.4.4"
+      - zone.internal_dns1 == "8.8.4.4"
+      - zone.dns2 == "8.8.8.8"
+      - zone.internal_dns2 == "8.8.8.8"
+      - zone.network_type == "Basic"
 
-- name: test disable zone idempotence
+- name: test update zone idempotence
   cs_zone:
     name: "{{ cs_resource_prefix }}-zone"
-    state: disabled
+    dns1: 8.8.4.4
+    dns2: 8.8.8.8
+    network_type: Basic
   register: zone
-- name: verify test disable zone idempotence
+- name: verify test create zone
   assert:
     that:
       - not zone|changed
-      - zone.state == "disabled"
+      - zone.id == zone_origin.id
+      - zone.allocation_state == "Disabled"
+      - zone.dns1 == "8.8.4.4"
+      - zone.internal_dns1 == "8.8.4.4"
+      - zone.dns2 == "8.8.8.8"
+      - zone.internal_dns2 == "8.8.8.8"
+      - zone.network_type == "Basic"
 
-- name: test enable zone
-  cs_zone:
-    name: "{{ cs_resource_prefix }}-zone"
-    state: enabled
-  register: zone
-- name: verify test enable zone
-  assert:
-    that:
-      - zone|changed
-      - zone.state == "enabled"
+#- name: test enable zone
+#  cs_zone:
+#    name: "{{ cs_resource_prefix }}-zone"
+#    state: enabled
+#  register: zone
+#- name: verify test enable zone
+#  assert:
+#    that:
+#      - zone|changed
+#      - zone.allocation_state == "Enabled"
 
-- name: test enable zone idempotence
-  cs_zone:
-    name: "{{ cs_resource_prefix }}-zone"
-    state: enabled
-  register: zone
-- name: verify test enable zone idempotence
-  assert:
-    that:
-      - not zone|changed
-      - zone.state == "enabled"
+#- name: test enable zone idempotence
+#  cs_zone:
+#    name: "{{ cs_resource_prefix }}-zone"
+#    state: enabled
+#  register: zone
+#- name: verify test enable zone idempotence
+#  assert:
+#    that:
+#      - not zone|changed
+#      - zone.allocation_state == "Enabled"
+
+#- name: test disable zone
+#  cs_zone:
+#    name: "{{ cs_resource_prefix }}-zone"
+#    state: disabled
+#  register: zone
+#- name: verify test disable zone
+#  assert:
+#    that:
+#      - zone|changed
+#      - zone.allocation_state == "Disabled"
+
+#- name: test disable zone idempotence
+#  cs_zone:
+#    name: "{{ cs_resource_prefix }}-zone"
+#    state: disabled
+#  register: zone
+#- name: verify test disable zone idempotence
+#  assert:
+#    that:
+#      - not zone|changed
+#      - zone.allocation_state == "Disabled"
 
 - name: test absent zone
   cs_zone:
@@ -89,6 +147,13 @@
   assert:
     that:
       - zone|changed
+      - zone.id == zone_origin.id
+      - zone.allocation_state == "Disabled"
+      - zone.dns1 == "8.8.4.4"
+      - zone.internal_dns1 == "8.8.4.4"
+      - zone.dns2 == "8.8.8.8"
+      - zone.internal_dns2 == "8.8.8.8"
+      - zone.network_type == "Basic"
 
 - name: test absent zone idempotence
   cs_zone:

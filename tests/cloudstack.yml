@@ -7,6 +7,10 @@
   vars:
     cs_resource_prefix: "{{ resource_prefix | default('cs-') }}"
   roles:
+    - { role: test_cs_configuration,        tags: [ test_cs_configuration, cs_net_basic ] }
+    - { role: test_cs_zone,                 tags: [ test_cs_zone, cs_net_basic ] }
+    - { role: test_cs_pod,                  tags: [ test_cs_pod, cs_net_basic ] }
+    - { role: test_cs_cluster,              tags: [ test_cs_cluster, cs_net_basic ] }
     - { role: test_cs_user,                 tags: [ test_cs_user, cs_net_basic ] }
     - { role: test_cs_volume,               tags: [ test_cs_volume, cs_net_basic ] }
     - { role: test_cs_project,              tags: [ test_cs_project, cs_net_basic ] }
@@ -19,7 +23,9 @@
     - { role: test_cs_securitygroup_rule,   tags: [ test_cs_securitygroup_rule, cs_net_basic ] }
     - { role: test_cs_instancegroup,        tags: [ test_cs_instancegroup, cs_net_basic ] }
     - { role: test_cs_instance,             tags: [ test_cs_instance, cs_net_basic ] }
+    - { role: test_cs_instance_facts,       tags: [ test_cs_instance_facts, cs_net_basic ] }
     - { role: test_cs_portforward,          tags: [ test_cs_portforward, cs_net_adv ] }
     - { role: test_cs_account,              tags: [ test_cs_account, cs_net_basic ] }
     - { role: test_cs_firewall,             tags: [ test_cs_firewall, cs_net_adv ] }
     - { role: test_cs_loadbalancer_rule,    tags: [ test_cs_loadbalancer_rule, cs_lb_rule, cs_net_adv ] }
+    - { role: test_cs_resourcelimit,        tags: [ test_cs_resourcelimit, cs_net_basic ] }
