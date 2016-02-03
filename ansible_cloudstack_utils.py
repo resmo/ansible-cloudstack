@@ -221,7 +221,10 @@ class AnsibleCloudStack(object):
         if zones:
             self.zone = zones['zone'][0]
             return self._get_by_key(key, self.zone)
-        self.module.fail_json(msg="No zones found")
+        if zone:
+            self.module.fail_json(msg="Zone %s not found" % zone)
+        else:
+            self.module.fail_json(msg="No zones found")
 
 
     def get_os_type(self, key=None):
