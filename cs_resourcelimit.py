@@ -339,13 +339,19 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.zone)
 
         zone = self.module.params.get('zone')
-        zones = self.cs.listZones(name=zone)
+        zones = self.cs.listZones()
 
         # use the first zone if no zone param given
-        if zones:
+        if not zone:
             self.zone = zones['zone'][0]
             return self._get_by_key(key, self.zone)
-        self.module.fail_json(msg="No zones found")
+
+        if zones:
+            for z in zones['zone']:
+                if zone.lower() in [ z['name'].lower(), z['id'] ]:
+                    self.zone = z
+                    return self._get_by_key(key, self.zone)
+        self.module.fail_json(msg="zone '%s' not found" % zone)
 
 
     def get_os_type(self, key=None):
