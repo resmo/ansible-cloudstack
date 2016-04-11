@@ -152,7 +152,7 @@ options:
     description:
       - List of security groups the instance to be applied to.
     required: false
-    default: []
+    default: null
     aliases: [ 'security_group' ]
   domain:
     description:
