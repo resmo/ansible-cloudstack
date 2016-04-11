@@ -82,7 +82,7 @@ EXAMPLES = '''
     zone: ch-zrh-ix-01
     start_ip: 10.100.10.101
     gateway: 10.100.10.1
-    netmast: 255.255.255.0
+    netmask: 255.255.255.0
 
 # Ensure a pod is disabled
 - local_action:
