@@ -31,6 +31,22 @@ options:
     description:
       - Name or display name of the instance.
     required: true
+  domain:
+    description:
+      - Domain the instance is related to.
+    required: false
+    default: null
+  account:
+    description:
+      - Account the instance is related to.
+    required: false
+    default: null
+  project:
+    description:
+      - Project the instance is related to.
+    required: false
+    default: null
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
@@ -658,6 +674,9 @@ def main():
     argument_spec = cs_argument_spec()
     argument_spec.update(dict(
         name = dict(required=True),
+        domain = dict(default=None),
+        account = dict(default=None),
+        project = dict(default=None),
     ))
 
     module = AnsibleModule(
