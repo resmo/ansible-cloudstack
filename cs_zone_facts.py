@@ -31,6 +31,7 @@ options:
     description:
       - Name of the zone.
     required: true
+extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
