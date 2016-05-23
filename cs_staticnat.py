@@ -42,6 +42,11 @@ options:
       - VM guest NIC secondary IP address for the static NAT.
     required: false
     default: false
+  network:
+    description:
+      - Network the IP address is related to.
+    required: false
+    default: null
   state:
     description:
       - State of the static NAT.
@@ -578,6 +583,29 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
         self.vm_default_nic = None
 
 
+    def get_network(self, key=None):
+       network = self.module.params.get('network')
+
+        if not network:
+            return None
+
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        args['projectid'] = self.get_project(key='id')
+        args['zoneid'] = self.get_zone(key='id')
+
+        networks = self.cs.listNetworks(**args)
+        if not networks:
+            self.module.fail_json(msg="No networks available")
+
+        for n in networks['network']:
+            if network in [ n['displaytext'], n['name'], n['id'] ]:
+                return self._get_by_key(key, n)
+                break
+        self.module.fail_json(msg="Network '%s' not found" % network)
+
+
 # TODO: move it to cloudstack utils, also used in cs_portforward
     def get_vm_guest_ip(self):
         vm_guest_ip = self.module.params.get('vm_guest_ip')
@@ -612,6 +640,8 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
         args['virtualmachineid'] = self.get_vm(key='id')
         args['ipaddressid'] = ip_address['id']
         args['vmguestip'] = self.get_vm_guest_ip()
+        args['networkid'] = self.get_network(key='id')
+
         if not self.module.check_mode:
             res = self.cs.enableStaticNat(**args)
             if 'errortext' in res:
@@ -678,6 +708,7 @@ def main():
         ip_address = dict(required=True),
         vm = dict(default=None),
         vm_guest_ip = dict(default=None),
+        network = dict(default=None),
         state = dict(choices=['present', 'absent'], default='present'),
         zone = dict(default=None),
         domain = dict(default=None),
