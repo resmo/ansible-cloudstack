@@ -45,6 +45,11 @@ options:
       - Network the IP address is related to.
     required: false
     default: null
+  vpc:
+     description:
+      - VPC the IP address is related to.
+    required: false
+    default: null
   account:
     description:
       - Account the IP address is related to.
@@ -552,6 +557,29 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
         }
 
 
+    def get_vpc(self, key=None):
+        vpc = self.module.params.get('vpc')
+
+        if not vpc:
+            return None
+
+        args = {}
+        args['account'] = self.get_account(key='name')
+        args['domainid'] = self.get_domain(key='id')
+        args['projectid'] = self.get_project(key='id')
+        args['zoneid'] = self.get_zone(key='id')
+
+        vpcs = self.cs.listVPCs(**args)
+        if not vpcs:
+            self.module.fail_json(msg="No VPCs available")
+
+        for v in vpcs['vpc']:
+            if vpc in [ v['displaytext'], v['name'], v['id'] ]:
+                return self._get_by_key(key, v)
+                break
+        self.module.fail_json(msg="VPC '%s' not found" % vpc)
+
+
     #TODO: Add to parent class, duplicated in cs_network
     def get_network(self, key=None, network=None):
         if not network:
@@ -606,6 +634,7 @@ class AnsibleCloudStackIPAddress(AnsibleCloudStack):
         args['projectid'] = self.get_project(key='id')
         args['networkid'] = self.get_network(key='id')
         args['zoneid'] = self.get_zone(key='id')
+        args['vpcid'] = self.get_vpc(key='id')
         ip_address = {}
         if not self.module.check_mode:
             res = self.cs.associateIpAddress(**args)
@@ -641,11 +670,12 @@ def main():
     argument_spec = cs_argument_spec()
     argument_spec.update(dict(
         ip_address = dict(required=False),
+        vpc = dict(default=None),
+        network = dict(default=None),
         state = dict(choices=['present', 'absent'], default='present'),
         zone = dict(default=None),
         domain = dict(default=None),
         account = dict(default=None),
-        network = dict(default=None),
         project = dict(default=None),
         poll_async = dict(type='bool', default=True),
     ))
