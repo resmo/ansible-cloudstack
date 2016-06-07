@@ -112,16 +112,24 @@ try:
 except ImportError:
     has_lib_sshpubkeys = False
 
-CS_HYPERVISORS=[
-    'KVM', 'kvm',
-    'VMware', 'vmware',
-    'BareMetal', 'baremetal',
-    'XenServer', 'xenserver',
-    'LXC', 'lxc',
-    'HyperV', 'hyperv',
-    'UCS', 'ucs',
-    'OVM', 'ovm',
-    'Simulator', 'simulator',
+import time
+
+try:
+    from cs import CloudStack, CloudStackException, read_config
+    has_lib_cs = True
+except ImportError:
+    has_lib_cs = False
+
+CS_HYPERVISORS = [
+    "KVM", "kvm",
+    "VMware", "vmware",
+    "BareMetal", "baremetal",
+    "XenServer", "xenserver",
+    "LXC", "lxc",
+    "HyperV", "hyperv",
+    "UCS", "ucs",
+    "OVM", "ovm",
+    "Simulator", "simulator",
     ]
 
 def cs_argument_spec():
@@ -179,17 +187,18 @@ class AnsibleCloudStack(object):
         self.account = None
         self.project = None
         self.ip_address = None
+        self.network = None
+        self.vpc = None
         self.zone = None
         self.vm = None
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
-        self.tags = None
 
 
     def _connect(self):
         api_key = self.module.params.get('api_key')
-        api_secret = self.module.params.get('secret_key')
+        api_secret = self.module.params.get('api_secret')
         api_url = self.module.params.get('api_url')
         api_http_method = self.module.params.get('api_http_method')
         api_timeout = self.module.params.get('api_timeout')
@@ -232,9 +241,11 @@ class AnsibleCloudStack(object):
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
         for key, value in want_dict.iteritems():
+
             # Optionally limit by a list of keys
             if only_keys and key not in only_keys:
                 continue
+
             # Skip None values
             if value is None:
                 continue
@@ -259,6 +270,58 @@ class AnsibleCloudStack(object):
                 return my_dict[key]
             self.module.fail_json(msg="Something went wrong: %s not found" % key)
         return my_dict
+
+
+    def get_vpc(self, key=None):
+        """Return a VPC dictionary or the value of given key of."""
+        if self.vpc:
+            return self._get_by_key(key, self.vpc)
+
+        vpc = self.module.params.get('vpc')
+        if not vpc:
+            return None
+
+        args = {
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+        }
+        vpcs = self.cs.listVPCs(**args)
+        if not vpcs:
+            self.module.fail_json(msg="No VPCs available.")
+
+        for v in vpcs['vpc']:
+            if vpc in [v['displaytext'], v['name'], v['id']]:
+                self.vpc = v
+                return self._get_by_key(key, self.vpc)
+        self.module.fail_json(msg="VPC '%s' not found" % vpc)
+
+
+    def get_network(self, key=None):
+        """Return a network dictionary or the value of given key of."""
+        if self.network:
+            return self._get_by_key(key, self.network)
+
+        network = self.module.params.get('network')
+        if not network:
+            return None
+
+        args = {
+            'account': self.get_account('name'),
+            'domainid': self.get_domain('id'),
+            'projectid': self.get_project('id'),
+            'zoneid': self.get_zone('id'),
+        }
+        networks = self.cs.listNetworks(**args)
+        if not networks:
+            self.module.fail_json(msg="No networks available.")
+
+        for n in networks['network']:
+            if network in [n['displaytext'], n['name'], n['id']]:
+                self.network = n
+                return self._get_by_key(key, self.network)
+        self.module.fail_json(msg="Network '%s' not found" % network)
 
 
     def get_project(self, key=None):
@@ -423,19 +486,9 @@ class AnsibleCloudStack(object):
 
 
     def get_tags(self, resource=None):
-        if not self.tags:
-            args = {}
-            args['projectid'] = self.get_project(key='id')
-            args['account'] = self.get_account(key='name')
-            args['domainid'] = self.get_domain(key='id')
-            args['resourceid'] = resource['id']
-            response = self.cs.listTags(**args)
-            self.tags = response.get('tag', [])
-
         existing_tags = []
-        if self.tags:
-            for tag in self.tags:
-                existing_tags.append({'key': tag['key'], 'value': tag['value']})
+        for tag in resource.get('tags',[]):
+            existing_tags.append({'key': tag['key'], 'value': tag['value']})
         return existing_tags
 
 
@@ -473,8 +526,7 @@ class AnsibleCloudStack(object):
             if tags is not None:
                 self._process_tags(resource, resource_type, self._tags_that_should_not_exist(resource, tags), operation="delete")
                 self._process_tags(resource, resource_type, self._tags_that_should_exist_or_be_updated(resource, tags))
-                self.tags = None
-                resource['tags'] = self.get_tags(resource)
+                resource['tags'] = tags
         return resource
 
 
