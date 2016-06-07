@@ -684,7 +684,7 @@ class AnsibleCloudStackProject(AnsibleCloudStack):
                 project = self._poll_job(project, 'project')
         return project
 
-    def state_project(self, state=None):
+    def state_project(self, state='active'):
         project = self.get_project()
 
         if not project:
@@ -755,6 +755,7 @@ def main():
             project = acs_project.absent_project()
 
         elif state in ['active', 'suspended']:
+            acs_project.present_project()
             project = acs_project.state_project(state=state)
 
         else:
