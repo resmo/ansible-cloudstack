@@ -1,13 +1,15 @@
 Ansible CloudStack Modules
 ==========================
 
-**~~BIG FAT~~ WARNING - THIS REPO ~~HAS EXPERIMENTAL STATE~~ IS WELL TESTED - THINGS MAY CHANGE ~~AND BRAKE~~ - OFFICIAL CLOUDSTACK MODULES ARE IN UNRELEASED ANSIBLE 2.0**
-
 Manages resources on Apache CloudStack, Citrix CloudPlatform and Exoscale.
+
+**NOTE: Since Ansible 2.1 was released, I don't see any more need to maintain this repo for Ansible 1.9. I mark this repo as deprecated with the next Ansible major release 2.2**
+
 
 Difference of CloudStack modules in ansible-modules-extras and this repo?
 --------------------------------------------------------------------------
-I would like to give you some general explanation about this repo and *ansible-modules-extras*. First of all this repo has been made for simple using CloudStack modules while ansible 2.0 is not yet released. I maintain the CloudStack modules in *ansible-modules-extras* as well and I am in charge to keep them in sync.
+This repo has been made for simple using CloudStack modules while ansible 2.0 is not yet released. 
+I maintain the CloudStack modules in *ansible-modules-extras* as well and I am in charge to keep them in sync.
 
 **This means they are 100% compatible**.
 
