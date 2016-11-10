@@ -48,6 +48,12 @@ options:
     required: false
     default: null
     version_added: "2.2"
+  vpc:
+    description:
+      - Name of the VPC.
+    required: false
+    default: null
+    version_added: "2.3"
   state:
     description:
       - State of the static NAT.
@@ -146,15 +152,10 @@ domain:
   sample: example domain
 '''
 
-
-try:
-    from cs import CloudStack, CloudStackException, read_config
-    has_lib_cs = True
-except ImportError:
-    has_lib_cs = False
-
 # import cloudstack common
+import os
 import time
+from ansible.module_utils.six import iteritems
 
 try:
     from cs import CloudStack, CloudStackException, read_config
@@ -195,6 +196,10 @@ class AnsibleCloudStack(object):
 
         self.result = {
             'changed': False,
+            'diff' : {
+                'before': dict(),
+                'after': dict()
+            }
         }
 
         # Common returns, will be merged with self.returns
@@ -220,6 +225,9 @@ class AnsibleCloudStack(object):
         # these keys will be compared case sensitive in self.has_changed()
         self.case_sensitive_keys = [
             'id',
+            'displaytext',
+            'displayname',
+            'description',
         ]
 
         self.module = module
@@ -233,6 +241,7 @@ class AnsibleCloudStack(object):
         self.vpc = None
         self.zone = None
         self.vm = None
+        self.vm_default_nic = None
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
@@ -265,23 +274,13 @@ class AnsibleCloudStack(object):
         return value
 
 
-    def fail_on_missing_params(self, required_params=None):
-        if not required_params:
-            return
-        missing_params = []
-        for required_param in required_params:
-            if not self.module.params.get(required_param):
-                missing_params.append(required_param)
-        if missing_params:
-            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
-
-
     # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
         return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
 
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
+        result = False
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
@@ -293,15 +292,38 @@ class AnsibleCloudStack(object):
                 continue
 
             if key in current_dict:
-                if self.case_sensitive_keys and key in self.case_sensitive_keys:
-                    if str(value) != str(current_dict[key]):
-                        return True
-                # Test for diff in case insensitive way
-                elif str(value).lower() != str(current_dict[key]).lower():
-                    return True
+                if isinstance(value, (int, float, long, complex)):
+                    # ensure we compare the same type
+                    if isinstance(value, int):
+                        current_dict[key] = int(current_dict[key])
+                    elif isinstance(value, float):
+                        current_dict[key] = float(current_dict[key])
+                    elif isinstance(value, long):
+                        current_dict[key] = long(current_dict[key])
+                    elif isinstance(value, complex):
+                        current_dict[key] = complex(current_dict[key])
+
+                    if value != current_dict[key]:
+                        self.result['diff']['before'][key] = current_dict[key]
+                        self.result['diff']['after'][key] = value
+                        result = True
+                else:
+                    if self.case_sensitive_keys and key in self.case_sensitive_keys:
+                        if value != current_dict[key].encode('utf-8'):
+                            self.result['diff']['before'][key] = current_dict[key].encode('utf-8')
+                            self.result['diff']['after'][key] = value
+                            result = True
+
+                    # Test for diff in case insensitive way
+                    elif value.lower() != current_dict[key].encode('utf-8').lower():
+                        self.result['diff']['before'][key] = current_dict[key].encode('utf-8')
+                        self.result['diff']['after'][key] = value
+                        result = True
             else:
-                return True
-        return False
+                self.result['diff']['before'][key] = None
+                self.result['diff']['after'][key] = value
+                result = True
+        return result
 
 
     def _get_by_key(self, key=None, my_dict=None):
@@ -350,10 +372,11 @@ class AnsibleCloudStack(object):
             return None
 
         args = {
-            'account': self.get_account('name'),
-            'domainid': self.get_domain('id'),
-            'projectid': self.get_project('id'),
-            'zoneid': self.get_zone('id'),
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+            'vpcid': self.get_vpc(key='id')
         }
         networks = self.cs.listNetworks(**args)
         if not networks:
@@ -371,6 +394,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.project)
 
         project = self.module.params.get('project')
+        if not project:
+            project = os.environ.get('CLOUDSTACK_PROJECT')
         if not project:
             return None
         args = {}
@@ -393,11 +418,13 @@ class AnsibleCloudStack(object):
         if not ip_address:
             self.module.fail_json(msg="IP address param 'ip_address' is required")
 
-        args = {}
-        args['ipaddress'] = ip_address
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
+        args = {
+            'ipaddress': ip_address,
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'vpcid': self.get_vpc(key='id'),
+        }
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
         if not ip_addresses:
@@ -405,6 +432,32 @@ class AnsibleCloudStack(object):
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
+
+
+    def get_vm_guest_ip(self):
+        vm_guest_ip = self.module.params.get('vm_guest_ip')
+        default_nic = self.get_vm_default_nic()
+
+        if not vm_guest_ip:
+            return default_nic['ipaddress']
+
+        for secondary_ip in default_nic['secondaryip']:
+            if vm_guest_ip == secondary_ip['ipaddress']:
+                return vm_guest_ip
+        self.module.fail_json(msg="Secondary IP '%s' not assigned to VM" % vm_guest_ip)
+
+
+    def get_vm_default_nic(self):
+        if self.vm_default_nic:
+            return self.vm_default_nic
+
+        nics = self.cs.listNics(virtualmachineid=self.get_vm(key='id'))
+        if nics:
+            for n in nics['nic']:
+                if n['isdefault']:
+                    self.vm_default_nic = n
+                    return self.vm_default_nic
+        self.module.fail_json(msg="No default IP address of VM '%s' found" % self.module.params.get('vm'))
 
 
     def get_vm(self, key=None):
@@ -415,11 +468,13 @@ class AnsibleCloudStack(object):
         if not vm:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
-        args = {}
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
-        args['zoneid'] = self.get_zone(key='id')
+        args = {
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+            'vpcid': self.get_vpc(key='id'),
+        }
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
@@ -434,6 +489,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.zone)
 
         zone = self.module.params.get('zone')
+        if not zone:
+            zone = os.environ.get('CLOUDSTACK_ZONE')
         zones = self.cs.listZones()
 
         # use the first zone if no zone param given
@@ -491,6 +548,8 @@ class AnsibleCloudStack(object):
 
         account = self.module.params.get('account')
         if not account:
+            account = os.environ.get('CLOUDSTACK_ACCOUNT')
+        if not account:
             return None
 
         domain = self.module.params.get('domain')
@@ -513,6 +572,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.domain)
 
         domain = self.module.params.get('domain')
+        if not domain:
+            domain = os.environ.get('CLOUDSTACK_DOMAIN')
         if not domain:
             return None
 
@@ -623,6 +684,7 @@ class AnsibleCloudStack(object):
         return self.result
 
 
+
 class AnsibleCloudStackStaticNat(AnsibleCloudStack):
 
     def __init__(self, module):
@@ -633,35 +695,6 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
             'ipaddress':                    'ip_address',
             'vmipaddress':                  'vm_guest_ip',
         }
-        self.vm_default_nic = None
-
-
-# TODO: move it to cloudstack utils, also used in cs_portforward
-    def get_vm_guest_ip(self):
-        vm_guest_ip = self.module.params.get('vm_guest_ip')
-        default_nic = self.get_vm_default_nic()
-
-        if not vm_guest_ip:
-            return default_nic['ipaddress']
-
-        for secondary_ip in default_nic['secondaryip']:
-            if vm_guest_ip == secondary_ip['ipaddress']:
-                return vm_guest_ip
-        self.module.fail_json(msg="Secondary IP '%s' not assigned to VM" % vm_guest_ip)
-
-
-# TODO: move it to cloudstack utils, also used in cs_portforward
-    def get_vm_default_nic(self):
-        if self.vm_default_nic:
-            return self.vm_default_nic
-
-        nics = self.cs.listNics(virtualmachineid=self.get_vm(key='id'))
-        if nics:
-            for n in nics['nic']:
-                if n['isdefault']:
-                    self.vm_default_nic = n
-                    return self.vm_default_nic
-        self.module.fail_json(msg="No default IP address of VM '%s' found" % self.module.params.get('vm'))
 
 
     def create_static_nat(self, ip_address):
@@ -690,13 +723,13 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
 
         # make an alias, so we can use _has_changed()
         ip_address['vmguestip'] = ip_address['vmipaddress']
-        if self._has_changed(args, ip_address):
+        if self.has_changed(args, ip_address, ['vmguestip', 'virtualmachineid']):
             self.result['changed'] = True
             if not self.module.check_mode:
                 res = self.cs.disableStaticNat(ipaddressid=ip_address['id'])
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                self._poll_job(res, 'staticnat')
+                self.poll_job(res, 'staticnat')
                 res = self.cs.enableStaticNat(**args)
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
@@ -726,7 +759,7 @@ class AnsibleCloudStackStaticNat(AnsibleCloudStack):
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    self._poll_job(res, 'staticnat')
+                    self.poll_job(res, 'staticnat')
         return ip_address
 
 
@@ -737,6 +770,7 @@ def main():
         vm = dict(default=None),
         vm_guest_ip = dict(default=None),
         network = dict(default=None),
+        vpc = dict(default=None),
         state = dict(choices=['present', 'absent'], default='present'),
         zone = dict(default=None),
         domain = dict(default=None),
@@ -750,9 +784,6 @@ def main():
         required_together=cs_required_together(),
         supports_check_mode=True
     )
-
-    if not has_lib_cs:
-        module.fail_json(msg="python library cs required: pip install cs")
 
     try:
         acs_static_nat = AnsibleCloudStackStaticNat(module)

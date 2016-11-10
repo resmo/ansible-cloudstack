@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# (c) 2015, René Moser <mail@renemoser.net>
+# (c) 2016, René Moser <mail@renemoser.net>
 #
 # This file is part of Ansible
 #
@@ -20,65 +20,63 @@
 
 DOCUMENTATION = '''
 ---
-module: cs_user
-short_description: Manages users on Apache CloudStack based clouds.
+module: cs_nic
+short_description: Manages NICs and secondary IPs of an instance on Apache CloudStack based clouds.
 description:
-    - Create, update, disable, lock, enable and remove users.
-version_added: '2.0'
+    - Add and remove secondary IPs to and from a NIC.
+version_added: "2.3"
 author: "René Moser (@resmo)"
 options:
-  username:
+  vm:
     description:
-      - Username of the user.
+      - Name of instance.
     required: true
-  account:
+    aliases: ['name']
+  network:
     description:
-      - Account the user will be created under.
-      - Required on C(state=present).
+      - Name of the network.
+      - Required to find the NIC if instance has multiple networks assigned.
     required: false
     default: null
-  password:
+  vm_guest_ip:
     description:
-      - Password of the user to be created.
-      - Required on C(state=present).
-      - Only considered on creation and will not be updated if user exists.
+      - Secondary IP address to be added to the instance nic.
+      - If not set, the API always returns a new IP address and idempotency is not given.
     required: false
     default: null
-  first_name:
+    aliases: ['secondary_ip']
+  vpc:
     description:
-      - First name of the user.
-      - Required on C(state=present).
-    required: false
-    default: null
-  last_name:
-    description:
-      - Last name of the user.
-      - Required on C(state=present).
-    required: false
-    default: null
-  email:
-    description:
-      - Email of the user.
-      - Required on C(state=present).
-    required: false
-    default: null
-  timezone:
-    description:
-      - Timezone of the user.
+      - Name of the VPC the C(vm) is related to.
     required: false
     default: null
   domain:
     description:
-      - Domain the user is related to.
+      - Domain the instance is related to.
     required: false
-    default: 'ROOT'
+    default: null
+  account:
+    description:
+      - Account the instance is related to.
+    required: false
+    default: null
+  project:
+    description:
+      - Name of the project the instance is deployed in.
+    required: false
+    default: null
+  zone:
+    description:
+      - Name of the zone in which the instance is deployed in.
+      - If not set, default zone is used.
+    required: false
+    default: null
   state:
     description:
-      - State of the user.
-      - C(unlocked) is an alias for C(enabled).
+      - State of the ipaddress.
     required: false
-    default: 'present'
-    choices: [ 'present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked' ]
+    default: "present"
+    choices: [ 'present', 'absent' ]
   poll_async:
     description:
       - Poll async jobs until job has finished.
@@ -88,116 +86,81 @@ extends_documentation_fragment: cloudstack
 '''
 
 EXAMPLES = '''
-# create an user in domain 'CUSTOMERS'
-local_action:
-  module: cs_user
-  account: developers
-  username: johndoe
-  password: S3Cur3
-  last_name: Doe
-  first_name: John
-  email: john.doe@example.com
-  domain: CUSTOMERS
+# Assign a specific IP to the default NIC of the VM
+- local_action:
+    module: cs_nic
+    vm: customer_xy
+    vm_guest_ip: 10.10.10.10
 
-# Lock an existing user in domain 'CUSTOMERS'
-local_action:
-  module: cs_user
-  username: johndoe
-  domain: CUSTOMERS
-  state: locked
+# Assign an IP to the default NIC of the VM
+# Note: If vm_guest_ip is not set, you will get a new IP address on every run.
+- local_action:
+    module: cs_nic
+    vm: customer_xy
 
-# Disable an existing user in domain 'CUSTOMERS'
-local_action:
-  module: cs_user
-  username: johndoe
-  domain: CUSTOMERS
-  state: disabled
-
-# Enable/unlock an existing user in domain 'CUSTOMERS'
-local_action:
-  module: cs_user
-  username: johndoe
-  domain: CUSTOMERS
-  state: enabled
-
-# Remove an user in domain 'CUSTOMERS'
-local_action:
-  module: cs_user
-  name: customer_xy
-  domain: CUSTOMERS
-  state: absent
+# Remove a specific IP from the default NIC
+- local_action:
+    module: cs_nic
+    vm: customer_xy
+    vm_guest_ip: 10.10.10.10
+    state: absent
 '''
 
 RETURN = '''
 ---
 id:
-  description: UUID of the user.
+  description: UUID of the nic.
   returned: success
   type: string
   sample: 87b1e0ce-4e01-11e4-bb66-0050569e64b8
-username:
-  description: Username of the user.
+vm:
+  description: Name of the VM.
   returned: success
   type: string
-  sample: johndoe
-fist_name:
-  description: First name of the user.
+  sample: web-01
+ip_address:
+  description: Primary IP of the NIC.
   returned: success
   type: string
-  sample: John
-last_name:
-  description: Last name of the user.
+  sample: 10.10.10.10
+netmask:
+  description: Netmask of the NIC.
   returned: success
   type: string
-  sample: Doe
-email:
-  description: Emailof the user.
+  sample: 255.255.255.0
+mac_address:
+  description: MAC address of the NIC.
   returned: success
   type: string
-  sample: john.doe@example.com
-api_key:
-  description: API key of the user.
+  sample: 02:00:33:31:00:e4
+vm_guest_ip:
+  description: Secondary IP of the NIC.
   returned: success
   type: string
-  sample: JLhcg8VWi8DoFqL2sSLZMXmGojcLnFrOBTipvBHJjySODcV4mCOo29W2duzPv5cALaZnXj5QxDx3xQfaQt3DKg
-api_secret:
-  description: API secret of the user.
+  sample: 10.10.10.10
+network:
+  description: Name of the network if not default.
   returned: success
   type: string
-  sample: FUELo3LB9fa1UopjTLPdqLv_6OXQMJZv9g9N4B_Ao3HFz8d6IGFCV9MbPFNM8mwz00wbMevja1DoUNDvI8C9-g
-account:
-  description: Account name of the user.
-  returned: success
-  type: string
-  sample: developers
-account_type:
-  description: Type of the account.
-  returned: success
-  type: string
-  sample: user
-timezone:
-  description: Timezone of the user.
-  returned: success
-  type: string
-  sample: enabled
-created:
-  description: Date the user was created.
-  returned: success
-  type: string
-  sample: Doe
-state:
-  description: State of the user.
-  returned: success
-  type: string
-  sample: enabled
+  sample: sync network
 domain:
-  description: Domain the user is related.
+  description: Domain the VM is related to.
   returned: success
   type: string
-  sample: ROOT
+  sample: example domain
+account:
+  description: Account the VM is related to.
+  returned: success
+  type: string
+  sample: example account
+project:
+  description: Name of project the VM is related to.
+  returned: success
+  type: string
+  sample: Production
 '''
 
-# import cloudstack common
+from ansible.module_utils.basic import AnsibleModule
 import os
 import time
 from ansible.module_utils.six import iteritems
@@ -730,251 +693,130 @@ class AnsibleCloudStack(object):
 
 
 
-class AnsibleCloudStackUser(AnsibleCloudStack):
+class AnsibleCloudStackNic(AnsibleCloudStack):
 
     def __init__(self, module):
-        super(AnsibleCloudStackUser, self).__init__(module)
+        super(AnsibleCloudStackNic, self).__init__(module)
+        self.vm_guest_ip = self.module.params.get('vm_guest_ip')
+        self.nic = None
         self.returns = {
-            'username':     'username',
-            'firstname':    'first_name',
-            'lastname':     'last_name',
-            'email':        'email',
-            'secretkey':    'api_secret',
-            'apikey':       'api_key',
-            'timezone':     'timezone',
+            'ipaddress': 'ip_address',
+            'macaddress': 'mac_address',
+            'netmask': 'netmask',
         }
-        self.account_types = {
-            'user':         0,
-            'root_admin':   1,
-            'domain_admin': 2,
+
+    def get_nic(self):
+        if self.nic:
+            return self.nic
+        args = {
+            'virtualmachineid': self.get_vm(key='id'),
+            'networkdid': self.get_network(key='id'),
         }
-        self.user = None
+        nics = self.cs.listNics(**args)
+        if nics:
+            self.nic = nics['nic'][0]
+            return self.nic
+        self.module.fail_json("NIC for VM %s in network %s not found" (self.get_vm(key='name'), self.get_network(key='name')))
 
+    def get_secondary_ip(self):
+        nic = self.get_nic()
+        if self.vm_guest_ip:
+            secondary_ips = nic.get('secondaryip') or []
+            for secondary_ip in secondary_ips:
+                if secondary_ip['ipaddress'] == self.vm_guest_ip:
+                    return secondary_ip
+        return None
 
-    def get_account_type(self):
-        account_type = self.module.params.get('account_type')
-        return self.account_types[account_type]
-
-
-    def get_user(self):
-        if not self.user:
-            args                = {}
-            args['domainid']    = self.get_domain('id')
-            users = self.cs.listUsers(**args)
-            if users:
-                user_name = self.module.params.get('username')
-                for u in users['user']:
-                    if user_name.lower() == u['username'].lower():
-                        self.user = u
-                        break
-        return self.user
-
-
-    def enable_user(self):
-        user = self.get_user()
-        if not user:
-            user = self.present_user()
-
-        if user['state'].lower() != 'enabled':
+    def present_nic(self):
+        nic = self.get_nic()
+        if not self.get_secondary_ip():
             self.result['changed'] = True
-            args        = {}
-            args['id']  = user['id']
+            args = {
+                'nicid': nic['id'],
+                'ipaddress': self.vm_guest_ip,
+            }
+
             if not self.module.check_mode:
-                res = self.cs.enableUser(**args)
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                user = res['user']
-        return user
-
-
-    def lock_user(self):
-        user = self.get_user()
-        if not user:
-            user = self.present_user()
-
-        # we need to enable the user to lock it.
-        if user['state'].lower() == 'disabled':
-            user = self.enable_user()
-
-        if user['state'].lower() != 'locked':
-            self.result['changed'] = True
-            args        = {}
-            args['id']  = user['id']
-            if not self.module.check_mode:
-                res = self.cs.lockUser(**args)
+                res = self.cs.addIpToNic(**args)
 
                 if 'errortext' in res:
                     self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-
-                user = res['user']
-        return user
-
-
-    def disable_user(self):
-        user = self.get_user()
-        if not user:
-            user = self.present_user()
-
-        if user['state'].lower() != 'disabled':
-            self.result['changed'] = True
-            args        = {}
-            args['id']  = user['id']
-            if not self.module.check_mode:
-                user = self.cs.disableUser(**args)
-                if 'errortext' in user:
-                    self.module.fail_json(msg="Failed: '%s'" % user['errortext'])
 
                 poll_async = self.module.params.get('poll_async')
                 if poll_async:
-                    user = self.poll_job(user, 'user')
-        return user
+                    nic = self.poll_job(res, 'nicsecondaryip')
+                    # Save result for RETURNS
+                    self.vm_guest_ip = nic['ipaddress']
+        return nic
 
-
-    def present_user(self):
-        missing_params = []
-        for required_params in [
-            'account',
-            'email',
-            'password',
-            'first_name',
-            'last_name',
-        ]:
-            if not self.module.params.get(required_params):
-                missing_params.append(required_params)
-        if missing_params:
-            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
-
-        user = self.get_user()
-        if user:
-            user = self._update_user(user)
-        else:
-            user = self._create_user(user)
-        return user
-
-
-    def _create_user(self, user):
-        self.result['changed'] = True
-
-        args                = {}
-        args['account']     = self.get_account(key='name')
-        args['domainid']    = self.get_domain('id')
-        args['username']    = self.module.params.get('username')
-        args['password']    = self.module.params.get('password')
-        args['firstname']   = self.module.params.get('first_name')
-        args['lastname']    = self.module.params.get('last_name')
-        args['email']       = self.module.params.get('email')
-        args['timezone']    = self.module.params.get('timezone')
-        if not self.module.check_mode:
-            res = self.cs.createUser(**args)
-            if 'errortext' in res:
-                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-            user = res['user']
-            # register user api keys
-            res = self.cs.registerUserKeys(id=user['id'])
-            if 'errortext' in res:
-                self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-            user.update(res['userkeys'])
-        return user
-
-
-    def _update_user(self, user):
-        args                = {}
-        args['id']          = user['id']
-        args['firstname']   = self.module.params.get('first_name')
-        args['lastname']    = self.module.params.get('last_name')
-        args['email']       = self.module.params.get('email')
-        args['timezone']    = self.module.params.get('timezone')
-        if self.has_changed(args, user):
+    def absent_nic(self):
+        nic = self.get_nic()
+        secondary_ip = self.get_secondary_ip()
+        if secondary_ip:
             self.result['changed'] = True
             if not self.module.check_mode:
-                res = self.cs.updateUser(**args)
+                res = self.cs.removeIpFromNic(id=secondary_ip['id'])
                 if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                user = res['user']
-        # register user api keys
-        if 'apikey' not in user:
-            self.result['changed'] = True
-            if not self.module.check_mode:
-                res = self.cs.registerUserKeys(id=user['id'])
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-                user.update(res['userkeys'])
-        return user
+                    self.module.fail_json(msg="Failed: '%s'" % nic['errortext'])
 
+                poll_async = self.module.params.get('poll_async')
+                if poll_async:
+                    self.poll_job(res, 'nicsecondaryip')
+        return nic
 
-    def absent_user(self):
-        user = self.get_user()
-        if user:
-            self.result['changed'] = True
-
-            if not self.module.check_mode:
-                res = self.cs.deleteUser(id=user['id'])
-
-                if 'errortext' in res:
-                    self.module.fail_json(msg="Failed: '%s'" % res['errortext'])
-        return user
-
-
-    def get_result(self, user):
-        super(AnsibleCloudStackUser, self).get_result(user)
-        if user:
-            if 'accounttype' in user:
-                for key,value in self.account_types.items():
-                    if value == user['accounttype']:
-                        self.result['account_type'] = key
-                        break
+    def get_result(self, nic):
+        super(AnsibleCloudStackNic, self).get_result(nic)
+        if nic and not self.module.params.get('network'):
+            self.module.params['network'] = nic.get('networkid')
+        self.result['network'] = self.get_network(key='name')
+        self.result['vm'] = self.get_vm(key='name')
+        self.result['vm_guest_ip'] = self.vm_guest_ip
+        self.result['domain'] =  self.get_domain(key='path')
+        self.result['account'] = self.get_account(key='name')
+        self.result['project'] = self.get_project(key='name')
         return self.result
 
 
 def main():
     argument_spec = cs_argument_spec()
     argument_spec.update(dict(
-        username = dict(required=True),
-        account = dict(default=None),
-        state = dict(choices=['present', 'absent', 'enabled', 'disabled', 'locked', 'unlocked'], default='present'),
-        domain = dict(default='ROOT'),
-        email = dict(default=None),
-        first_name = dict(default=None),
-        last_name = dict(default=None),
-        password = dict(default=None, no_log=True),
-        timezone = dict(default=None),
-        poll_async = dict(type='bool', default=True),
+        vm=dict(required=True, aliases=['name']),
+        vm_guest_ip=dict(default=None, aliases=['secondary_ip']),
+        network=dict(default=None),
+        vpc=dict(default=None),
+        state=dict(choices=['present', 'absent'], default='present'),
+        domain=dict(default=None),
+        account=dict(default=None),
+        project=dict(default=None),
+        zone=dict(default=None),
+        poll_async=dict(type='bool', default=True),
     ))
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         required_together=cs_required_together(),
-        supports_check_mode=True
+        supports_check_mode=True,
+        required_if=([
+            ('state', 'absent', ['vm_guest_ip'])
+        ])
     )
 
     try:
-        acs_acc = AnsibleCloudStackUser(module)
+        acs_nic = AnsibleCloudStackNic(module)
 
         state = module.params.get('state')
 
-        if state in ['absent']:
-            user = acs_acc.absent_user()
-
-        elif state in ['enabled', 'unlocked']:
-            user = acs_acc.enable_user()
-
-        elif state in ['disabled']:
-            user = acs_acc.disable_user()
-
-        elif state in ['locked']:
-            user = acs_acc.lock_user()
-
+        if state == 'absent':
+            nic = acs_nic.absent_nic()
         else:
-            user = acs_acc.present_user()
+            nic = acs_nic.present_nic()
 
-        result = acs_acc.get_result(user)
+        result = acs_nic.get_result(nic)
 
     except CloudStackException as e:
         module.fail_json(msg='CloudStackException: %s' % str(e))
 
     module.exit_json(**result)
 
-# import module snippets
-from ansible.module_utils.basic import *
 if __name__ == '__main__':
     main()

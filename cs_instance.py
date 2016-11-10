@@ -193,6 +193,12 @@ options:
       - Consider switching to HTTP_POST by using C(CLOUDSTACK_METHOD=post) to increase the HTTP_GET size limit of 2KB to 32 KB.
     required: false
     default: null
+  vpc:
+    description:
+      - Name of the VPC.
+    required: false
+    default: null
+    version_added: "2.3"
   force:
     description:
       - Force stop/start the instance if required to apply changes, otherwise a running instance will not be changed.
@@ -263,7 +269,7 @@ EXAMPLES = '''
     service_offering: Tiny
     ip_to_networks:
       - {'network': NetworkA, 'ip': '10.1.1.1'}
-      - {'network': NetworkB, 'ip': '192.168.1.1'}
+      - {'network': NetworkB, 'ip': '192.0.2.1'}
 
 # Ensure an instance is stopped
 - local_action: cs_instance name=web-vm-1 state=stopped
@@ -396,14 +402,10 @@ instance_name:
 
 import base64
 
-try:
-    from cs import CloudStack, CloudStackException, read_config
-    has_lib_cs = True
-except ImportError:
-    has_lib_cs = False
-
 # import cloudstack common
+import os
 import time
+from ansible.module_utils.six import iteritems
 
 try:
     from cs import CloudStack, CloudStackException, read_config
@@ -444,6 +446,10 @@ class AnsibleCloudStack(object):
 
         self.result = {
             'changed': False,
+            'diff' : {
+                'before': dict(),
+                'after': dict()
+            }
         }
 
         # Common returns, will be merged with self.returns
@@ -469,6 +475,9 @@ class AnsibleCloudStack(object):
         # these keys will be compared case sensitive in self.has_changed()
         self.case_sensitive_keys = [
             'id',
+            'displaytext',
+            'displayname',
+            'description',
         ]
 
         self.module = module
@@ -482,6 +491,7 @@ class AnsibleCloudStack(object):
         self.vpc = None
         self.zone = None
         self.vm = None
+        self.vm_default_nic = None
         self.os_type = None
         self.hypervisor = None
         self.capabilities = None
@@ -514,23 +524,13 @@ class AnsibleCloudStack(object):
         return value
 
 
-    def fail_on_missing_params(self, required_params=None):
-        if not required_params:
-            return
-        missing_params = []
-        for required_param in required_params:
-            if not self.module.params.get(required_param):
-                missing_params.append(required_param)
-        if missing_params:
-            self.module.fail_json(msg="missing required arguments: %s" % ','.join(missing_params))
-
-
     # TODO: for backward compatibility only, remove if not used anymore
     def _has_changed(self, want_dict, current_dict, only_keys=None):
         return self.has_changed(want_dict=want_dict, current_dict=current_dict, only_keys=only_keys)
 
 
     def has_changed(self, want_dict, current_dict, only_keys=None):
+        result = False
         for key, value in want_dict.iteritems():
 
             # Optionally limit by a list of keys
@@ -542,15 +542,38 @@ class AnsibleCloudStack(object):
                 continue
 
             if key in current_dict:
-                if self.case_sensitive_keys and key in self.case_sensitive_keys:
-                    if str(value) != str(current_dict[key]):
-                        return True
-                # Test for diff in case insensitive way
-                elif str(value).lower() != str(current_dict[key]).lower():
-                    return True
+                if isinstance(value, (int, float, long, complex)):
+                    # ensure we compare the same type
+                    if isinstance(value, int):
+                        current_dict[key] = int(current_dict[key])
+                    elif isinstance(value, float):
+                        current_dict[key] = float(current_dict[key])
+                    elif isinstance(value, long):
+                        current_dict[key] = long(current_dict[key])
+                    elif isinstance(value, complex):
+                        current_dict[key] = complex(current_dict[key])
+
+                    if value != current_dict[key]:
+                        self.result['diff']['before'][key] = current_dict[key]
+                        self.result['diff']['after'][key] = value
+                        result = True
+                else:
+                    if self.case_sensitive_keys and key in self.case_sensitive_keys:
+                        if value != current_dict[key].encode('utf-8'):
+                            self.result['diff']['before'][key] = current_dict[key].encode('utf-8')
+                            self.result['diff']['after'][key] = value
+                            result = True
+
+                    # Test for diff in case insensitive way
+                    elif value.lower() != current_dict[key].encode('utf-8').lower():
+                        self.result['diff']['before'][key] = current_dict[key].encode('utf-8')
+                        self.result['diff']['after'][key] = value
+                        result = True
             else:
-                return True
-        return False
+                self.result['diff']['before'][key] = None
+                self.result['diff']['after'][key] = value
+                result = True
+        return result
 
 
     def _get_by_key(self, key=None, my_dict=None):
@@ -599,10 +622,11 @@ class AnsibleCloudStack(object):
             return None
 
         args = {
-            'account': self.get_account('name'),
-            'domainid': self.get_domain('id'),
-            'projectid': self.get_project('id'),
-            'zoneid': self.get_zone('id'),
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+            'vpcid': self.get_vpc(key='id')
         }
         networks = self.cs.listNetworks(**args)
         if not networks:
@@ -620,6 +644,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.project)
 
         project = self.module.params.get('project')
+        if not project:
+            project = os.environ.get('CLOUDSTACK_PROJECT')
         if not project:
             return None
         args = {}
@@ -642,11 +668,13 @@ class AnsibleCloudStack(object):
         if not ip_address:
             self.module.fail_json(msg="IP address param 'ip_address' is required")
 
-        args = {}
-        args['ipaddress'] = ip_address
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
+        args = {
+            'ipaddress': ip_address,
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'vpcid': self.get_vpc(key='id'),
+        }
         ip_addresses = self.cs.listPublicIpAddresses(**args)
 
         if not ip_addresses:
@@ -654,6 +682,32 @@ class AnsibleCloudStack(object):
 
         self.ip_address = ip_addresses['publicipaddress'][0]
         return self._get_by_key(key, self.ip_address)
+
+
+    def get_vm_guest_ip(self):
+        vm_guest_ip = self.module.params.get('vm_guest_ip')
+        default_nic = self.get_vm_default_nic()
+
+        if not vm_guest_ip:
+            return default_nic['ipaddress']
+
+        for secondary_ip in default_nic['secondaryip']:
+            if vm_guest_ip == secondary_ip['ipaddress']:
+                return vm_guest_ip
+        self.module.fail_json(msg="Secondary IP '%s' not assigned to VM" % vm_guest_ip)
+
+
+    def get_vm_default_nic(self):
+        if self.vm_default_nic:
+            return self.vm_default_nic
+
+        nics = self.cs.listNics(virtualmachineid=self.get_vm(key='id'))
+        if nics:
+            for n in nics['nic']:
+                if n['isdefault']:
+                    self.vm_default_nic = n
+                    return self.vm_default_nic
+        self.module.fail_json(msg="No default IP address of VM '%s' found" % self.module.params.get('vm'))
 
 
     def get_vm(self, key=None):
@@ -664,11 +718,13 @@ class AnsibleCloudStack(object):
         if not vm:
             self.module.fail_json(msg="Virtual machine param 'vm' is required")
 
-        args = {}
-        args['account'] = self.get_account(key='name')
-        args['domainid'] = self.get_domain(key='id')
-        args['projectid'] = self.get_project(key='id')
-        args['zoneid'] = self.get_zone(key='id')
+        args = {
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+            'vpcid': self.get_vpc(key='id'),
+        }
         vms = self.cs.listVirtualMachines(**args)
         if vms:
             for v in vms['virtualmachine']:
@@ -683,6 +739,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.zone)
 
         zone = self.module.params.get('zone')
+        if not zone:
+            zone = os.environ.get('CLOUDSTACK_ZONE')
         zones = self.cs.listZones()
 
         # use the first zone if no zone param given
@@ -740,6 +798,8 @@ class AnsibleCloudStack(object):
 
         account = self.module.params.get('account')
         if not account:
+            account = os.environ.get('CLOUDSTACK_ACCOUNT')
+        if not account:
             return None
 
         domain = self.module.params.get('domain')
@@ -762,6 +822,8 @@ class AnsibleCloudStack(object):
             return self._get_by_key(key, self.domain)
 
         domain = self.module.params.get('domain')
+        if not domain:
+            domain = os.environ.get('CLOUDSTACK_DOMAIN')
         if not domain:
             return None
 
@@ -872,6 +934,7 @@ class AnsibleCloudStack(object):
         return self.result
 
 
+
 class AnsibleCloudStackInstance(AnsibleCloudStack):
 
     def __init__(self, module):
@@ -965,11 +1028,12 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         instance = self.instance
         if not instance:
             instance_name = self.get_or_fallback('name', 'display_name')
-
-            args                = {}
-            args['account']     = self.get_account(key='name')
-            args['domainid']    = self.get_domain(key='id')
-            args['projectid']   = self.get_project(key='id')
+            args = {
+                'account': self.get_account(key='name'),
+                'domainid': self.get_domain(key='id'),
+                'projectid': self.get_project(key='id'),
+                'vpcid': self.get_vpc(key='id'),
+            }
             # Do not pass zoneid, as the instance name must be unique across zones.
             instances = self.cs.listVirtualMachines(**args)
             if instances:
@@ -1024,12 +1088,13 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         if not network_names:
             return None
 
-        args                = {}
-        args['account']     = self.get_account(key='name')
-        args['domainid']    = self.get_domain(key='id')
-        args['projectid']   = self.get_project(key='id')
-        args['zoneid']      = self.get_zone(key='id')
-
+        args = {
+            'account': self.get_account(key='name'),
+            'domainid': self.get_domain(key='id'),
+            'projectid': self.get_project(key='id'),
+            'zoneid': self.get_zone(key='id'),
+            'vpcid': self.get_vpc(key='id'),
+        }
         networks = self.cs.listNetworks(**args)
         if not networks:
             self.module.fail_json(msg="No networks available")
@@ -1138,7 +1203,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                instance = self._poll_job(instance, 'virtualmachine')
+                instance = self.poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1148,7 +1213,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args_service_offering['id'] = instance['id']
         if self.module.params.get('service_offering'):
             args_service_offering['serviceofferingid'] = self.get_service_offering_id()
-        service_offering_changed = self._has_changed(args_service_offering, instance)
+        service_offering_changed = self.has_changed(args_service_offering, instance)
 
         # Instance data
         args_instance_update = {}
@@ -1159,7 +1224,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             args_instance_update['group'] = self.module.params.get('group')
         if self.module.params.get('display_name'):
             args_instance_update['displayname'] = self.module.params.get('display_name')
-        instance_changed = self._has_changed(args_instance_update, instance)
+        instance_changed = self.has_changed(args_instance_update, instance)
 
         # SSH key data
         args_ssh_key = {}
@@ -1167,7 +1232,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         args_ssh_key['projectid'] = self.get_project(key='id')
         if self.module.params.get('ssh_key'):
             args_ssh_key['keypair'] = self.module.params.get('ssh_key')
-        ssh_key_changed = self._has_changed(args_ssh_key, instance)
+        ssh_key_changed = self.has_changed(args_ssh_key, instance)
 
         security_groups_changed = self.security_groups_has_changed()
 
@@ -1187,7 +1252,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     # Ensure VM has stopped
                     instance = self.stop_instance()
-                    instance = self._poll_job(instance, 'virtualmachine')
+                    instance = self.poll_job(instance, 'virtualmachine')
                     self.instance = instance
 
                     # Change service offering
@@ -1214,7 +1279,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         if 'errortext' in instance:
                             self.module.fail_json(msg="Failed: '%s'" % instance['errortext'])
 
-                        instance = self._poll_job(instance, 'virtualmachine')
+                        instance = self.poll_job(instance, 'virtualmachine')
                         self.instance = instance
 
                     # Start VM again if it was running before
@@ -1247,7 +1312,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self._poll_job(res, 'virtualmachine')
+                        instance = self.poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1270,7 +1335,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                res = self._poll_job(res, 'virtualmachine')
+                res = self.poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1291,7 +1356,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self._poll_job(instance, 'virtualmachine')
+                        instance = self.poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1312,7 +1377,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self._poll_job(instance, 'virtualmachine')
+                        instance = self.poll_job(instance, 'virtualmachine')
         return instance
 
 
@@ -1330,7 +1395,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
                     poll_async = self.module.params.get('poll_async')
                     if poll_async:
-                        instance = self._poll_job(instance, 'virtualmachine')
+                        instance = self.poll_job(instance, 'virtualmachine')
 
             elif instance['state'].lower() in [ 'stopping', 'stopped' ]:
                 instance = self.start_instance()
@@ -1351,7 +1416,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
 
             poll_async = self.module.params.get('poll_async')
             if poll_async:
-                instance = self._poll_job(res, 'virtualmachine')
+                instance = self.poll_job(res, 'virtualmachine')
         return instance
 
 
@@ -1408,6 +1473,7 @@ def main():
         ssh_key = dict(default=None),
         force = dict(type='bool', default=False),
         tags = dict(type='list', aliases=[ 'tag' ], default=None),
+        vpc = dict(default=None),
         poll_async = dict(type='bool', default=True),
     ))
 
@@ -1427,9 +1493,6 @@ def main():
         ),
         supports_check_mode=True
     )
-
-    if not has_lib_cs:
-        module.fail_json(msg="python library cs required: pip install cs")
 
     try:
         acs_instance = AnsibleCloudStackInstance(module)
