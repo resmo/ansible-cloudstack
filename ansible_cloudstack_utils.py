@@ -188,6 +188,8 @@ class AnsibleCloudStack(object):
 
         vpc = self.module.params.get('vpc')
         if not vpc:
+            vpc = os.environ.get('CLOUDSTACK_VPC')
+        if not vpc:
             return None
 
         args = {
